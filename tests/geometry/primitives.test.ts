@@ -3,6 +3,7 @@ import {
   BoxGeometry,
   BufferGeometry,
   CapsuleGeometry,
+  ConeGeometry,
   CylinderGeometry,
   PlaneGeometry,
   SphereGeometry,
@@ -16,6 +17,7 @@ const allPrimitives = (): Primitive[] => [
   { name: 'plane', geometry: new PlaneGeometry(2, 2) },
   { name: 'sphere', geometry: new SphereGeometry(1, 16, 8) },
   { name: 'cylinder', geometry: new CylinderGeometry() },
+  { name: 'cone', geometry: new ConeGeometry() },
   { name: 'torus', geometry: new TorusGeometry() },
   { name: 'capsule', geometry: new CapsuleGeometry() },
 ];
@@ -76,6 +78,8 @@ describe('BufferGeometry attribute contract', () => {
     expect(() => new SphereGeometry(1, 2, 1)).toThrow('at least 3');
     expect(() => new CylinderGeometry(1, 2, 2)).toThrow('at least 3 segments');
     expect(() => new CylinderGeometry(0, 2, 8)).toThrow('positive');
+    expect(() => new ConeGeometry(1, 2, 2)).toThrow('at least 3 segments');
+    expect(() => new ConeGeometry(0, 2, 8)).toThrow('positive');
     expect(() => new TorusGeometry(0, 0.3)).toThrow('positive');
     expect(() => new CapsuleGeometry(0.5, 1, 2)).toThrow('segments');
   });

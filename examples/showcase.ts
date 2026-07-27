@@ -19,6 +19,7 @@ import {
   BoxGeometry,
   CapsuleGeometry,
   CylinderGeometry,
+  ConeGeometry,
   DirectionalLight,
   Engine,
   GLTFLoader,
@@ -636,6 +637,173 @@ function postprocessLab(): Runtime {
   r.dispose = () => button.remove();
   return r;
 }
+function lowPolyForest(): Runtime {
+  const r = three();
+  const engine = r.engine!;
+  const scene = engine.scene;
+  (engine.renderer as WebGLRenderer).setClearColor('#8fc4dc');
+  r.controls!.focus(new Vector3(0, 1.1, -4), 19);
+
+  const ambient = new AmbientLight('#dff2df', 0.42);
+  const sky = new HemisphereLight('#d8efff', 0.85);
+  sky.groundColor = '#566a3d';
+  const sun = new DirectionalLight('#fff0bd', 1.65);
+  sun.direction.set(-0.55, -1, -0.35);
+  scene.add(ambient, sky, sun);
+
+  const pondX = 3.2;
+  const pondZ = -4.2;
+  const terrainHeight = (x: number, z: number) => {
+    const pondDistance = Math.hypot((x - pondX) / 3.1, (z - pondZ) / 2.15);
+    if (pondDistance < 1.15) return -0.48 + Math.max(0, pondDistance - 0.78) * 0.3;
+    return Math.sin(x * 0.38) * 0.34 + Math.cos(z * 0.29) * 0.26 + Math.sin((x + z) * 0.21) * 0.16;
+  };
+
+  const terrainPositions: number[] = [];
+  const cells = 16;
+  const step = 1.4;
+  const start = (-cells * step) / 2;
+  const point = (column: number, row: number) => {
+    const x = start + column * step;
+    const z = -4 + start + row * step;
+    return [x, terrainHeight(x, z), z] as const;
+  };
+  for (let row = 0; row < cells; row += 1) {
+    for (let column = 0; column < cells; column += 1) {
+      const a = point(column, row);
+      const b = point(column, row + 1);
+      const c = point(column + 1, row + 1);
+      const d = point(column + 1, row);
+      terrainPositions.push(...a, ...b, ...c, ...a, ...c, ...d);
+    }
+  }
+  const terrain = new Mesh(
+    new BufferGeometry(terrainPositions),
+    new StandardMaterial({ color: '#789a4c', roughness: 0.96, metalness: 0 }),
+  );
+  terrain.name = 'Faceted rolling terrain';
+  scene.add(terrain);
+
+  const water = new Mesh(
+    new CylinderGeometry(1, 0.08, 18),
+    new StandardMaterial({ color: '#4d9db4', roughness: 0.18, metalness: 0.08, transparent: true, opacity: 0.82 }),
+  );
+  water.name = 'Low-poly pond';
+  water.position.set(pondX, -0.35, pondZ);
+  water.scale.set(3.05, 1, 2.05);
+  scene.add(water);
+
+  const trunkGeometry = new CylinderGeometry(0.16, 1, 6);
+  const crownGeometry = new ConeGeometry(1, 1, 7);
+  const trunkMaterial = new StandardMaterial({ color: '#76513a', roughness: 0.92 });
+  const crownMaterials = [
+    new StandardMaterial({ color: '#315f3d', roughness: 0.9 }),
+    new StandardMaterial({ color: '#477b43', roughness: 0.88 }),
+    new StandardMaterial({ color: '#5b8a45', roughness: 0.86 }),
+  ];
+  const treePositions = [
+    [-8.4, -9.5],
+    [-6.7, -6.4],
+    [-8.8, -2.1],
+    [-6.2, 1.4],
+    [-3.8, -10.4],
+    [-3.1, -5.6],
+    [-4.4, -0.8],
+    [-1.2, -8.2],
+    [-0.5, -2.2],
+    [1.2, 1.8],
+    [4.8, -9.6],
+    [7.2, -7.2],
+    [7.9, -2.5],
+    [5.8, 0.5],
+    [9.2, 2.8],
+  ] as const;
+  const trees: Node[] = [];
+  treePositions.forEach(([x, z], index) => {
+    const tree = new Node();
+    tree.name = `Tree ${index + 1}`;
+    tree.position.set(x, terrainHeight(x, z), z);
+    const trunkHeight = 1.55 + (index % 4) * 0.18;
+    const trunk = new Mesh(trunkGeometry, trunkMaterial);
+    trunk.position.y = trunkHeight / 2;
+    trunk.scale.y = trunkHeight;
+    const lower = new Mesh(crownGeometry, crownMaterials[index % crownMaterials.length]);
+    lower.position.y = trunkHeight + 0.65;
+    lower.scale.set(1.15 + (index % 3) * 0.08, 1.85, 1.15 + (index % 3) * 0.08);
+    const upper = new Mesh(crownGeometry, crownMaterials[(index + 1) % crownMaterials.length]);
+    upper.position.y = trunkHeight + 1.55;
+    upper.scale.set(0.78, 1.45, 0.78);
+    tree.add(trunk, lower, upper);
+    scene.add(tree);
+    trees.push(tree);
+  });
+
+  const grassGeometry = new BufferGeometry([-0.08, 0, 0, 0.08, 0, 0, 0, 0.55, 0, 0, 0, -0.08, 0, 0, 0.08, 0, 0.48, 0]);
+  const grassMaterial = new StandardMaterial({ color: '#88a94e', roughness: 1, doubleSided: true });
+  let seed = 1357;
+  const random = () => ((seed = (seed * 48271) % 2147483647) - 1) / 2147483646;
+  const grasses: Mesh[] = [];
+  while (grasses.length < 34) {
+    const x = (random() - 0.5) * 20;
+    const z = -4 + (random() - 0.5) * 20;
+    if (Math.hypot((x - pondX) / 3.3, (z - pondZ) / 2.4) < 1.25) continue;
+    const grass = new Mesh(grassGeometry, grassMaterial);
+    grass.position.set(x, terrainHeight(x, z) + 0.02, z);
+    grass.rotation.y = random() * Math.PI;
+    grass.scale.setScalar(0.7 + random() * 0.65);
+    scene.add(grass);
+    grasses.push(grass);
+  }
+
+  const rockGeometry = new SphereGeometry(0.42, 7, 4);
+  const rockMaterial = new StandardMaterial({ color: '#7b7f72', roughness: 0.98 });
+  for (let index = 0; index < 11; index += 1) {
+    const angle = (index / 11) * Math.PI * 2;
+    const x = pondX + Math.cos(angle) * 3.15;
+    const z = pondZ + Math.sin(angle) * 2.12;
+    const rock = new Mesh(rockGeometry, rockMaterial);
+    rock.position.set(x, terrainHeight(x, z) + 0.18, z);
+    rock.scale.set(0.75 + (index % 3) * 0.16, 0.45 + (index % 2) * 0.12, 0.65 + (index % 4) * 0.1);
+    rock.rotation.y = angle;
+    scene.add(rock);
+  }
+
+  const cloudGeometry = new SphereGeometry(1, 8, 4);
+  const cloudMaterial = new BasicMaterial({ color: '#f3f4e8', transparent: true, opacity: 0.9 });
+  const clouds = [
+    [-7, 6.4, -8],
+    [0.5, 7.2, -11],
+    [7.5, 6.7, -5],
+  ].map(([x, y, z], cloudIndex) => {
+    const cloud = new Node();
+    cloud.name = `Cloud ${cloudIndex + 1}`;
+    cloud.position.set(x, y, z);
+    [
+      [-0.9, 0, 0, 1.15],
+      [0, 0.25, 0, 1.35],
+      [1.05, -0.05, 0, 0.95],
+    ].forEach(([px, py, pz, scale]) => {
+      const puff = new Mesh(cloudGeometry, cloudMaterial);
+      puff.position.set(px, py, pz);
+      puff.scale.set(scale, scale * 0.62, scale * 0.75);
+      cloud.add(puff);
+    });
+    scene.add(cloud);
+    return cloud;
+  });
+
+  r.update = ({ deltaTime, elapsed }) => {
+    water.position.y = -0.35 + Math.sin(elapsed * 0.8) * 0.015;
+    clouds.forEach((cloud, index) => {
+      cloud.position.x += deltaTime * 0.09 * (index + 1);
+      if (cloud.position.x > 12) cloud.position.x = -12;
+    });
+  };
+  r.stats = () =>
+    `procedural world · trees ${trees.length} · grass ${grasses.length} · clouds ${clouds.length} · external assets 0`;
+  status('procedural low-poly world · no external models');
+  return r;
+}
 function customGeometry(): Runtime {
   const positions = [
     -1, -1, 1, 1, -1, 1, 0, 1, 0, 1, -1, 1, 1, -1, -1, 0, 1, 0, 1, -1, -1, -1, -1, -1, 0, 1, 0, -1, -1, -1, -1, -1, 1,
@@ -1092,6 +1260,7 @@ function rendererBackends(): Runtime {
   return r;
 }
 function build(id: ExampleId): Runtime {
+  if (id === 'low-poly-forest') return lowPolyForest();
   if (id === 'primitives') return primitives();
   if (id === 'advanced-primitives') return advanced();
   if (id === 'materials') return materials();

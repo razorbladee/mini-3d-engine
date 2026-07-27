@@ -54,6 +54,7 @@ export class WebGLRenderer implements Renderer {
   private readonly basic: ProgramState;
   private readonly lit: ProgramState;
   private disposed = false;
+  private readonly background = new Float32Array([0.06, 0.08, 0.13]);
 
   /** Reused across frames to keep the draw loop allocation-free. */
   private readonly drawList: { mesh: Mesh; depth: number; transparent: boolean }[] = [];
@@ -89,6 +90,12 @@ export class WebGLRenderer implements Renderer {
     gl.enable(gl.CULL_FACE);
     gl.frontFace(gl.CCW);
     gl.clearDepth(1);
+  }
+
+  /** Changes the colour used to clear the canvas before each frame. */
+  setClearColor(color: string) {
+    this.background.set(parseHexColor(color));
+    return this;
   }
 
   setSize(width: number, height: number, dpr = globalThis.devicePixelRatio || 1) {
@@ -223,7 +230,7 @@ export class WebGLRenderer implements Renderer {
     if (this.disposed) throw new Error('WebGLRenderer has been disposed');
     const gl = this.gl;
 
-    gl.clearColor(0.06, 0.08, 0.13, 1);
+    gl.clearColor(this.background[0], this.background[1], this.background[2], 1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     scene.updateWorldMatrix();
     camera.updateViewMatrix();

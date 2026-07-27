@@ -1,4 +1,5 @@
 export type ExampleGroup =
+  | 'Featured'
   | 'Geometry'
   | 'Materials'
   | 'Textures'
@@ -10,6 +11,7 @@ export type ExampleGroup =
   | 'Production'
   | 'Extensions';
 export type ExampleId =
+  | 'low-poly-forest'
   | 'primitives'
   | 'advanced-primitives'
   | 'materials'
@@ -46,6 +48,13 @@ export type ExampleId =
   | 'renderer-backends';
 export type ExampleMeta = { id: ExampleId; group: ExampleGroup; title: string; summary: string; hint: string };
 export const examples: ExampleMeta[] = [
+  {
+    id: 'low-poly-forest',
+    group: 'Featured',
+    title: 'Low-poly forest world',
+    summary: 'A procedural forest, pond, sparse grass, clouds and rolling terrain — no external models.',
+    hint: 'Drag to explore, wheel to zoom',
+  },
   {
     id: 'primitives',
     group: 'Geometry',

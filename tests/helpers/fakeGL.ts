@@ -36,6 +36,7 @@ export type FakeGL = WebGL2RenderingContext & {
   __texParams: { name: number; value: number }[];
   __pixelStore: { name: number; value: number }[];
   __mipmapCount: number;
+  __clearColor: [number, number, number, number] | null;
 };
 
 const GL_CONSTANTS: Record<string, number> = {
@@ -104,6 +105,7 @@ export function createFakeGL(options: { declaredUniforms?: string[] } = {}): Fak
     __texParams: [] as { name: number; value: number }[],
     __pixelStore: [] as { name: number; value: number }[],
     __mipmapCount: 0,
+    __clearColor: null as [number, number, number, number] | null,
     __declaredUniforms: options.declaredUniforms ? new Set(options.declaredUniforms) : null,
     __live(kind?: string) {
       return resources.filter((r) => !r.deleted && (kind === undefined || r.kind === kind));
@@ -181,7 +183,9 @@ export function createFakeGL(options: { declaredUniforms?: string[] } = {}): Fak
     },
     frontFace: () => {},
     clearDepth: () => {},
-    clearColor: () => {},
+    clearColor: (r: number, g: number, b: number, a: number) => {
+      gl.__clearColor = [r, g, b, a];
+    },
     clear: () => {},
     viewport: () => {},
     blendFunc: () => {},

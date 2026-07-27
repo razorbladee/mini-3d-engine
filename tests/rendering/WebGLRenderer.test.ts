@@ -152,6 +152,15 @@ describe('WebGLRenderer spot lights', () => {
 });
 
 describe('WebGLRenderer draw pass', () => {
+  it('uses a configurable canvas clear colour', () => {
+    const { gl, renderer, scene, camera } = setupRenderer();
+    renderer.setClearColor('#87b8d8').render(scene, camera);
+    expect(gl.__clearColor?.[0]).toBeCloseTo(0x87 / 255, 6);
+    expect(gl.__clearColor?.[1]).toBeCloseTo(0xb8 / 255, 6);
+    expect(gl.__clearColor?.[2]).toBeCloseTo(0xd8 / 255, 6);
+    expect(gl.__clearColor?.[3]).toBe(1);
+  });
+
   it('draws every visible mesh once', () => {
     const { gl, renderer, scene, camera } = setupRenderer();
     for (let i = 0; i < 3; i += 1) {

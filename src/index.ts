@@ -18,6 +18,7 @@ export * from './geometry/BoxGeometry';
 export * from './geometry/PlaneGeometry';
 export * from './geometry/SphereGeometry';
 export * from './geometry/CylinderGeometry';
+export * from './geometry/ConeGeometry';
 export * from './geometry/TorusGeometry';
 export * from './geometry/CapsuleGeometry';
 export * from './materials/BasicMaterial';

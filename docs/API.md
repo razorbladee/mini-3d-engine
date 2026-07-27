@@ -33,7 +33,7 @@ deltaTime и fps.
 `BufferGeometry` хранит positions, normals, uvs, `boundingRadius`,
 `vertexCount` и `attributes` (views типа `BufferAttribute`). GPU-ресурсами
 владеет renderer, а не геометрия. Примитивы: Box, Plane, Sphere, Cylinder,
-Torus, Capsule — все с корректной CCW-намоткой, без вырожденных треугольников
+Cone, Torus, Capsule — все с корректной CCW-намоткой, без вырожденных треугольников
 и с собственными UV-развёртками.
 
 ## Materials and textures
@@ -73,7 +73,8 @@ view-projection матрицы. `AssetManager` дедуплицирует заг
 ## Renderer
 
 `Renderer` задаёт backend contract, `WebGLRenderer implements Renderer`.
-Поддерживает depth test/write, culling, сортировку по глубине **вдоль оси
+`WebGLRenderer.setClearColor()` настраивает фон кадра. Renderer поддерживает
+depth test/write, culling, сортировку по глубине **вдоль оси
 взгляда камеры** (opaque front-to-back, transparent back-to-front), alpha
 blending, depth-mask handling и inverse-transpose normal matrix для
 non-uniform scale.

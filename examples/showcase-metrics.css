@@ -66,6 +66,14 @@
 .inspector-panel {
   width: min(390px, calc(100% - 270px));
 }
+.nav-group:first-child .nav-item {
+  border-color: color-mix(in oklch, var(--accent), transparent 48%);
+  background: color-mix(in oklch, var(--accent), var(--night) 76%);
+  color: #f3efff;
+}
+.nav-group:first-child > p {
+  color: oklch(76% 0.13 292);
+}
 #example-nav {
   min-height: 0;
   overflow-y: auto;

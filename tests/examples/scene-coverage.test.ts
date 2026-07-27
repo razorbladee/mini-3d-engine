@@ -18,6 +18,13 @@ import { examples } from '../../examples/showcase-registry';
 
 const source = readFileSync(fileURLToPath(new URL('../../examples/showcase.ts', import.meta.url)), 'utf8');
 
+const functionBody = (name: string) => {
+  const start = source.indexOf(`function ${name}(`);
+  if (start < 0) throw new Error(`${name}() not found in showcase.ts`);
+  const next = source.indexOf('\nfunction ', start + 1);
+  return source.slice(start, next < 0 ? undefined : next);
+};
+
 const buildBody = (() => {
   const start = source.indexOf('function build(');
   if (start < 0) throw new Error('build() not found in showcase.ts');
@@ -36,5 +43,27 @@ describe('showcase scene coverage', () => {
   it('reports the scene count from the registry rather than hard-coding it', () => {
     const hardCoded = source.match(/WebGL2\s*·\s*(\d+)\s*scenes/);
     if (hardCoded) expect(Number(hardCoded[1])).toBe(examples.length);
+  });
+});
+
+describe('featured low-poly forest', () => {
+  const forest = functionBody('lowPolyForest');
+
+  it('is the first example', () => {
+    expect(examples[0].id).toBe('low-poly-forest');
+  });
+
+  it('builds every requested environment layer procedurally', () => {
+    expect(forest).toContain('terrainPositions');
+    expect(forest).toContain('treePositions');
+    expect(forest).toContain('grassGeometry');
+    expect(forest).toContain('cloudGeometry');
+    expect(forest).toContain("name = 'Low-poly pond'");
+  });
+
+  it('does not load external models or textures', () => {
+    expect(forest).not.toContain('GLTFLoader');
+    expect(forest).not.toContain('Texture2D.load');
+    expect(forest).not.toContain('models.');
   });
 });
