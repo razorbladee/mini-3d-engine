@@ -42,7 +42,9 @@ npm run verify   # format + lint + typecheck + test + build
 брёвнами, пнями, скальной группой, травой, облаками и мягкими направленными
 тенями — без внешних моделей. Рядом находится идентичная по составу сцена на
 `ShaderMaterial`: toon lighting, процедурные оттенки, ветер, вода и PCF-тени
-реализованы пользовательским GLSL. Scene browser также покрывает геометрию, материалы,
+реализованы пользовательским GLSL. Третий вариант объединяет эти shaders с
+шестью временными web textures для земли, листвы, воды, облаков, камня и
+дерева. Scene browser также покрывает геометрию, материалы,
 transforms, procedural/image textures, lighting, cameras, bounds,
 input, frustum culling, particles, physics, animation, assets, GPU resources,
 scene inspection, renderer/audio boundaries, post-processing и glTF/GLB.

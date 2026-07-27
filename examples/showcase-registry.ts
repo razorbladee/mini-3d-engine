@@ -13,6 +13,7 @@ export type ExampleGroup =
 export type ExampleId =
   | 'low-poly-forest'
   | 'shader-forest'
+  | 'textured-shader-forest'
   | 'primitives'
   | 'advanced-primitives'
   | 'materials'
@@ -62,6 +63,13 @@ export const examples: ExampleMeta[] = [
     title: 'Shader forest world',
     summary: 'The same forest objects rendered with custom toon, wind, water and shadow GLSL.',
     hint: 'Compare with the scene above',
+  },
+  {
+    id: 'textured-shader-forest',
+    group: 'Featured',
+    title: 'Textured shader forest',
+    summary: 'The same world with custom GLSL plus web textures on every object class.',
+    hint: 'Wait for 6 maps, then compare',
   },
   {
     id: 'primitives',

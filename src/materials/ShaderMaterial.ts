@@ -1,3 +1,4 @@
+import { Texture2D } from '../rendering/Texture2D';
 import { BasicMaterial } from './BasicMaterial';
 
 export type ShaderUniformValue = number | Float32Array;
@@ -23,6 +24,7 @@ export class ShaderMaterial extends BasicMaterial {
     transparent?: boolean;
     wireframe?: boolean;
     doubleSided?: boolean;
+    map?: Texture2D;
   }) {
     super(options);
     this.vertexShader = options.vertexShader;

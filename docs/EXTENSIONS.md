@@ -10,6 +10,15 @@ const fromDom = Texture2D.fromImage(imageElement);
 
 `Texture2D` декодирует изображения, кеширует WebGL texture на context и умеет `dispose(gl)`. `BasicMaterial` и `StandardMaterial` принимают `map`. Geometry предоставляет `uvs`.
 
+### Временные textures showcase
+
+Сцена `textured-shader-forest` использует шесть изображений из
+[`mrdoob/three.js`](https://github.com/mrdoob/three.js/tree/3cc8908cad65fe9a75c4fcf29c4f897c593443d5/examples/textures),
+зафиксированных на commit `3cc8908c`: terrain grass (CC BY 3.0, OpenGameArt),
+Minecraft-style grass/dirt, water, cloud map и hardwood. Это временные demo
+assets с сохранением исходных лицензий; позже они будут заменены собственным
+набором. При сетевой ошибке сцена сохраняет цветной shader fallback.
+
 ## GLTFLoader
 
 ```ts

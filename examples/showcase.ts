@@ -675,6 +675,8 @@ const forestFragmentShader = `#version 300 es
 precision highp float;
 #define MAX_LIGHTS 4
 uniform vec4 uColor;
+uniform sampler2D uMap;
+uniform int uHasMap;
 uniform vec3 uAmbientColor;
 uniform int uDirectionalCount;
 uniform vec3 uDirectionalColor[MAX_LIGHTS];
@@ -713,7 +715,13 @@ float shadowVisibility() {
 }
 
 void main() {
-  vec3 base = uColor.rgb;
+  vec2 textureUv = vUv;
+  if (uShaderKind < 0.5) textureUv = vWorldPosition.xz * 0.16;
+  else if (uShaderKind > 1.5 && uShaderKind < 2.5) textureUv = vWorldPosition.xz * 0.2 + vec2(uTime * 0.015, 0.0);
+  else if (uShaderKind > 3.5) textureUv *= 2.4;
+  vec4 texel = uHasMap == 1 ? texture(uMap, textureUv) : vec4(1.0);
+  vec3 base = uColor.rgb * texel.rgb;
+  float alpha = uColor.a * texel.a;
   vec3 normal = normalize(vWorldNormal);
   vec3 lightDirection = uDirectionalCount > 0 ? normalize(-uDirectionalDirection[0]) : vec3(0.4, 1.0, 0.3);
   float diffuse = max(dot(normal, lightDirection), 0.0);
@@ -739,7 +747,7 @@ void main() {
     base *= mix(0.86, 1.08, rings * 0.2);
   }
 
-  outColor = vec4(clamp(base * lighting, 0.0, 1.0), uColor.a);
+  outColor = vec4(clamp(base * lighting, 0.0, 1.0), alpha);
 }`;
 
 type ForestMaterialOptions = {
@@ -751,21 +759,31 @@ type ForestMaterialOptions = {
   doubleSided?: boolean;
 };
 
-function lowPolyForest(shaderMode = false): Runtime {
+function lowPolyForest(mode: 'standard' | 'shader' | 'textured' = 'standard'): Runtime {
+  const shaderMode = mode !== 'standard';
+  const texturedMode = mode === 'textured';
   const r = three();
   const engine = r.engine!;
   const scene = engine.scene;
   const shaderMaterials: ShaderMaterial[] = [];
+  const materialsByKind = new Map<number, BasicMaterial[]>();
   const forestMaterial = (options: ForestMaterialOptions, shaderKind = 0, wind = 0, unlit = false) => {
-    if (!shaderMode) return unlit ? new BasicMaterial(options) : new StandardMaterial(options);
-    const material = new ShaderMaterial({
-      ...options,
-      vertexShader: forestVertexShader,
-      fragmentShader: forestFragmentShader,
-      lights: true,
-      uniforms: { uTime: 0, uWind: wind, uShaderKind: shaderKind },
-    });
-    shaderMaterials.push(material);
+    const materialOptions = texturedMode ? { ...options, color: '#ffffff' } : options;
+    const material = shaderMode
+      ? new ShaderMaterial({
+          ...materialOptions,
+          vertexShader: forestVertexShader,
+          fragmentShader: forestFragmentShader,
+          lights: true,
+          uniforms: { uTime: 0, uWind: wind, uShaderKind: shaderKind },
+        })
+      : unlit
+        ? new BasicMaterial(materialOptions)
+        : new StandardMaterial(materialOptions);
+    if (material instanceof ShaderMaterial) shaderMaterials.push(material);
+    const group = materialsByKind.get(shaderKind) ?? [];
+    group.push(material);
+    materialsByKind.set(shaderKind, group);
     return material;
   };
   (engine.renderer as WebGLRenderer).setClearColor(shaderMode ? '#735fa3' : '#8fc4dc');
@@ -1039,6 +1057,50 @@ function lowPolyForest(shaderMode = false): Runtime {
     return cloud;
   });
 
+  let disposed = false;
+  let loadedTextures = 0;
+  if (texturedMode) {
+    const textureSources = new Map<number, string>([
+      [
+        0,
+        'https://raw.githubusercontent.com/mrdoob/three.js/3cc8908cad65fe9a75c4fcf29c4f897c593443d5/examples/textures/terrain/grasslight-big.jpg',
+      ],
+      [
+        1,
+        'https://raw.githubusercontent.com/mrdoob/three.js/3cc8908cad65fe9a75c4fcf29c4f897c593443d5/examples/textures/minecraft/grass.png',
+      ],
+      [
+        2,
+        'https://raw.githubusercontent.com/mrdoob/three.js/3cc8908cad65fe9a75c4fcf29c4f897c593443d5/examples/textures/water.jpg',
+      ],
+      [
+        3,
+        'https://raw.githubusercontent.com/mrdoob/three.js/3cc8908cad65fe9a75c4fcf29c4f897c593443d5/examples/textures/planets/earth_clouds_1024.png',
+      ],
+      [
+        4,
+        'https://raw.githubusercontent.com/mrdoob/three.js/3cc8908cad65fe9a75c4fcf29c4f897c593443d5/examples/textures/minecraft/dirt.png',
+      ],
+      [
+        5,
+        'https://raw.githubusercontent.com/mrdoob/three.js/3cc8908cad65fe9a75c4fcf29c4f897c593443d5/examples/textures/hardwood2_diffuse.jpg',
+      ],
+    ]);
+    status('loading 6 web textures…');
+    for (const [kind, url] of textureSources) {
+      void Texture2D.load(url, { wrapS: 'repeat', wrapT: 'repeat', generateMipmaps: true })
+        .then((loaded) => {
+          if (disposed) return;
+          for (const material of materialsByKind.get(kind) ?? []) material.map = loaded;
+          loadedTextures += 1;
+          status(`shader + textures · ${loadedTextures}/${textureSources.size} maps loaded`);
+        })
+        .catch(() => {
+          if (!disposed) status(`texture ${kind} unavailable · color fallback active`);
+        });
+    }
+  }
+
   const controls = addToolbar([
     {
       label: 'Toggle shadows',
@@ -1057,13 +1119,17 @@ function lowPolyForest(shaderMode = false): Runtime {
     });
   };
   r.stats = () =>
-    `${shaderMode ? `custom GLSL ${shaderMaterials.length} materials` : 'standard materials'} · shadows ${sun.castShadow ? '2048² PCF' : 'off'} · trees ${trees.length} · shrubs ${shrubs.length} · logs ${logs.length} · stumps ${stumps.length} · cliffs ${cliffs.length} · grass ${grasses.length} · clouds ${clouds.length}`;
-  r.dispose = () => controls.remove();
-  status(
-    shaderMode
-      ? 'shader forest · toon light, wind and water GLSL'
-      : 'procedural low-poly world · directional shadows on',
-  );
+    `${texturedMode ? `shader + web textures ${loadedTextures}/6` : shaderMode ? `custom GLSL ${shaderMaterials.length} materials` : 'standard materials'} · shadows ${sun.castShadow ? '2048² PCF' : 'off'} · trees ${trees.length} · shrubs ${shrubs.length} · logs ${logs.length} · stumps ${stumps.length} · cliffs ${cliffs.length} · grass ${grasses.length} · clouds ${clouds.length}`;
+  r.dispose = () => {
+    disposed = true;
+    controls.remove();
+  };
+  if (!texturedMode)
+    status(
+      shaderMode
+        ? 'shader forest · toon light, wind and water GLSL'
+        : 'procedural low-poly world · directional shadows on',
+    );
   return r;
 }
 function customGeometry(): Runtime {
@@ -1523,7 +1589,8 @@ function rendererBackends(): Runtime {
 }
 function build(id: ExampleId): Runtime {
   if (id === 'low-poly-forest') return lowPolyForest();
-  if (id === 'shader-forest') return lowPolyForest(true);
+  if (id === 'shader-forest') return lowPolyForest('shader');
+  if (id === 'textured-shader-forest') return lowPolyForest('textured');
   if (id === 'primitives') return primitives();
   if (id === 'advanced-primitives') return advanced();
   if (id === 'materials') return materials();

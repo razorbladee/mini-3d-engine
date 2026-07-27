@@ -40,10 +40,12 @@ describe('BasicMaterial', () => {
 });
 
 describe('ShaderMaterial', () => {
-  it('keeps custom GLSL, uniforms and lighting mode', () => {
+  it('keeps custom GLSL, uniforms, texture and lighting mode', () => {
+    const map = Texture2D.fromImage({} as HTMLImageElement);
     const material = new ShaderMaterial({
       vertexShader: 'vertex source',
       fragmentShader: 'fragment source',
+      map,
       uniforms: { uTime: 2, uWind: new Float32Array([1, 2]) },
       lights: true,
       color: '#123456',
@@ -51,6 +53,7 @@ describe('ShaderMaterial', () => {
     expect(material.vertexShader).toBe('vertex source');
     expect(material.fragmentShader).toBe('fragment source');
     expect(material.uniforms.uTime).toBe(2);
+    expect(material.map).toBe(map);
     expect(material.lights).toBe(true);
     expect(material).toBeInstanceOf(BasicMaterial);
   });

@@ -66,15 +66,22 @@ describe('featured low-poly forest', () => {
   });
 
   it('builds the shader comparison from the identical scene function', () => {
-    expect(buildBody).toContain("if (id === 'shader-forest') return lowPolyForest(true)");
+    expect(buildBody).toContain("if (id === 'shader-forest') return lowPolyForest('shader')");
+    expect(buildBody).toContain("if (id === 'textured-shader-forest') return lowPolyForest('textured')");
     expect(source).toContain('const forestVertexShader');
     expect(source).toContain('const forestFragmentShader');
     expect(forest).toContain('new ShaderMaterial');
   });
 
-  it('does not load external models or textures', () => {
+  it('never loads external models', () => {
     expect(forest).not.toContain('GLTFLoader');
-    expect(forest).not.toContain('Texture2D.load');
     expect(forest).not.toContain('models.');
+  });
+
+  it('loads six pinned web textures only in textured mode', () => {
+    expect(forest).toContain('if (texturedMode)');
+    expect(forest).toContain('Texture2D.load');
+    expect(forest).toContain('3cc8908cad65fe9a75c4fcf29c4f897c593443d5');
+    expect(forest).toContain('shader + web textures');
   });
 });
