@@ -200,8 +200,13 @@ export class GLTFLoader {
     });
     const center: [number, number, number] = [(min[0] + max[0]) / 2, (min[1] + max[1]) / 2, (min[2] + max[2]) / 2],
       radius = Math.max(Math.hypot(max[0] - min[0], max[1] - min[1], max[2] - min[2]) / 2, 0.0001);
-    root.position.set(-center[0], -center[1], -center[2]);
-    if (radius > 3) root.scale.set(3 / radius, 3 / radius, 3 / radius);
+    // Порядок важен: compose() строит TRS, масштаб применяется к локальным
+    // координатам ДО переноса. Раньше offset хранился в исходных единицах, а
+    // масштаб накладывался сверху — центр Fox (radius~99) оказывался в мировой
+    // точке (-68, -136) вместо нуля, и модель улетала за кадр.
+    const fit = radius > 3 ? 3 / radius : 1;
+    if (fit !== 1) root.scale.set(fit, fit, fit);
+    root.position.set(-center[0] * fit, -center[1] * fit, -center[2] * fit);
     return { scene: root, animations: json.animations ?? [], bounds: { center, radius } };
   }
 }

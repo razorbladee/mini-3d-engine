@@ -1,5 +1,7 @@
 import {
+  AabbBounds,
   AmbientLight,
+  BasicMaterial,
   BoxGeometry,
   CapsuleGeometry,
   CylinderGeometry,
@@ -359,30 +361,61 @@ function production(id: ExampleId): Runtime {
   }
   if (id === 'asset-manager') {
     const manager = new AssetManager();
-    let count = 0;
-    manager.load(
-      'demo',
-      async () => {
-        count++;
-        await new Promise((x) => setTimeout(x, 300));
-        return count;
-      },
-      { onProgress: (p) => status(p.loaded ? 'asset loaded' : 'loading asset') },
-    );
-    manager.load('demo', async () => {
-      count++;
-      return count;
+    const tiles = [-1.6, 0, 1.6].map((x) => {
+      const tile = new Mesh(new BoxGeometry(1.15), new BasicMaterial({ color: '#df8f56' }));
+      tile.position.set(x, 0, -5);
+      s.add(tile);
+      return tile;
     });
+    let loaderCalls = 0;
+    let disposed = false;
+    const loader = async () => {
+      loaderCalls += 1;
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      return '#59c7a5';
+    };
+    const requests = tiles.map((tile) =>
+      manager.load('shared-tile', loader).then((color) => {
+        tile.material.color.set(BasicMaterial.parseColor(color));
+      }),
+    );
+    status('loading 3 requests…');
+    void Promise.all(requests).then(() => {
+      if (!disposed) status(`${loaderCalls} loader call · 3 requests`);
+    });
+    r.dispose = () => {
+      disposed = true;
+    };
     return r;
   }
   if (id === 'bounds-input') {
     const input = new InputMap();
-    const point = new Node();
-    point.position.z = -5;
-    s.add(new Mesh(new BoxGeometry(1), mat('#8068dc')).add(point));
+    r.engine!.track(input);
+    const jump = input.bind('jump', ['ArrowUp', ' ']);
+    const bounds = new AabbBounds(new Vector3(-2, -1, -6), new Vector3(2, 1, -4));
+    const volume = new Mesh(
+      new BoxGeometry(1),
+      new BasicMaterial({ color: '#8068dc', wireframe: true, transparent: true, opacity: 0.5 }),
+    );
+    volume.position.set(0, 0, -5);
+    volume.scale.set(4, 2, 2);
+    const marker = new Mesh(new BoxGeometry(0.65), new BasicMaterial({ color: '#59c7a5' }));
+    marker.position.set(0, 0, -5);
+    s.add(volume, marker);
+    let outside = false;
     r.update = () => {
-      if (input.bind('jump', ['ArrowUp', ' ']).wasPressed()) status('input received');
+      if (!jump.wasPressed()) return;
+      outside = !outside;
+      marker.position.y = outside ? 1.5 : 0;
+      const inside = bounds.contains(marker.position);
+      marker.material.color.set(BasicMaterial.parseColor(inside ? '#59c7a5' : '#df8f56'));
+      status(inside ? 'inside AABB' : 'outside AABB');
     };
+    r.dispose = () => {
+      r.engine!.untrack(input);
+      input.dispose();
+    };
+    status('inside AABB · press Space or ArrowUp');
     return r;
   }
   return r;
