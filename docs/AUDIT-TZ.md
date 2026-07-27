@@ -4,6 +4,42 @@
 > Каждая проблема воспроизведена и измерена локально, а не выведена «на глаз».
 > Документ **не отменяет** `MVP-SPEC.md`, а фиксирует расхождения кода с ним и план возврата к спецификации.
 
+## Статус выполнения
+
+Этапы 0–4 выполнены. Актуальное состояние: `build`, `lint`, `typecheck` зелёные;
+**288 тестов, 277 проходят**; 11 красных — это намеренные тесты, фиксирующие
+проблемы этапов 5–7 (см. таблицу).
+
+| Этап                  | Статус | Что закрыто                                                               |
+| --------------------- | ------ | ------------------------------------------------------------------------- |
+| 0. Разблокировка      | ✅     | P0-1, P0-2, `.gitignore`, lock-файл, `tests` в tsconfig, vitest+jsdom     |
+| 1. Инфраструктура     | ✅     | P3-1 (Prettier+ESLint, 0 errors), P3-2 (CI, см. `ci/github-workflow.yml`) |
+| 2. Тестовый фундамент | ✅     | T-1…T-8: 41 → 288 тестов, fakeGL, все баги зафиксированы красными тестами |
+| 3. Математика         | ✅     | P1-2, P1-5, P2-2 (частично), P2-5 (частично)                              |
+| 4. Геометрия          | ✅     | P1-3, P1-8, P2-2 (BufferAttribute)                                        |
+| 5. Рендер             | ⬜     | P1-1, P1-6, P2-1, P2-6, P2-5 (renderer)                                   |
+| 6. Подсистемы         | ⬜     | P1-4, P1-7, P1-9, P2-3, P2-7, P2-8, P2-9                                  |
+| 7. Примеры и docs     | ⬜     | P3-4, P3-5, P2-4                                                          |
+
+Оставшиеся красные тесты (каждый указывает на конкретный пункт ТЗ):
+
+| Тест                                                                | Пункт |
+| ------------------------------------------------------------------- | ----- |
+| `WebGLRenderer > only requests uniforms that the shaders declare`   | P1-1  |
+| `WebGLRenderer > resolves every uniform it looks up`                | P1-1  |
+| `WebGLRenderer > feeds ambient light into the lit program`          | P1-1  |
+| `WebGLRenderer > releases every GPU resource it created on dispose` | P1-6  |
+| `Frustum > accepts a point directly in front of the camera`         | P1-4  |
+| `Frustum > accepts a sphere straddling the frustum boundary`        | P1-4  |
+| `PostProcess > feeds each pass the result of the previous one`      | P1-7  |
+| `InputMap > returns a stable action object for repeated binds`      | P1-9  |
+| `showcase scene coverage > 'cameras' / 'texture' / 'postprocess'`   | P3-4  |
+
+> **CI.** Workflow лежит в `ci/github-workflow.yml`, а не в `.github/workflows/`:
+> GitHub App, от имени которого идут коммиты, не имеет права `workflows`, и push
+> с таким файлом отклоняется. Мейнтейнеру нужно скопировать файл на место один раз.
+> До этого локальная проверка — `npm run verify`.
+
 ---
 
 ## 0. Сводка состояния
