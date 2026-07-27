@@ -1,0 +1,1 @@
+import {Node} from '../core/Node'; export abstract class Light extends Node { constructor(public color='#ffffff',public intensity=1){super()} } export class AmbientLight extends Light {} export class DirectionalLight extends Light { direction={x:0,y:-1,z:0} } export class PointLight extends Light { distance=0 }
