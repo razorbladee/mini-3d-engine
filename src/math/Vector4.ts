@@ -1,0 +1,1 @@
+export class Vector4 { constructor(public x=0,public y=0,public z=0,public w=1) {} set(x:number,y:number,z:number,w=this.w){this.x=x;this.y=y;this.z=z;this.w=w;return this} clone(){return new Vector4(this.x,this.y,this.z,this.w)} }
