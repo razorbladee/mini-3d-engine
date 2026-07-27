@@ -1,0 +1,2 @@
+import {describe,expect,it} from 'vitest';import {GLTFLoader,SpotLight,HemisphereLight} from '../src';
+describe('render regressions',()=>{it('exposes the lights used by the gallery',()=>{const spot=new SpotLight();const hemi=new HemisphereLight();expect(spot.direction.y).toBe(-1);expect(hemi.groundColor).toBe('#777777')});it('rejects an empty model scene',async()=>{const json={scenes:[{nodes:[0]}],nodes:[{children:[]}],meshes:[],buffers:[]};await expect(new GLTFLoader().parseJson(json,new URL('https://example.com/'))).rejects.toThrow('no renderable meshes')})});
