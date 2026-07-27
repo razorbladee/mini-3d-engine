@@ -1,0 +1,2 @@
+import {describe,expect,it} from 'vitest'; import {Matrix4,Node,Vector3} from '../src';
+describe('math',()=>{it('normalizes vectors',()=>{expect(new Vector3(3,0,0).normalize().x).toBe(1)});it('propagates world transforms',()=>{const parent=new Node();parent.position.x=2;const child=new Node();child.position.x=3;parent.add(child);parent.updateWorldMatrix();expect(child.worldMatrix.elements[12]).toBe(5)})});
