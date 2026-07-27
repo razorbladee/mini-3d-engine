@@ -1,0 +1,20 @@
+export type ExampleGroup = 'Geometry' | 'Materials' | 'Cameras' | 'Interaction' | 'Simulation' | 'Extensions';
+export type ExampleId = 'primitives' | 'materials' | 'scene-graph' | 'cameras' | 'raycasting' | 'physics' | 'texture' | 'postprocess';
+
+export type ExampleMeta = { id: ExampleId; group: ExampleGroup; title: string; summary: string; hint: string };
+
+export const examples: ExampleMeta[] = [
+  { id: 'primitives', group: 'Geometry', title: 'Primitive workshop', summary: 'Box, sphere, plane, and a lit floor in one scene.', hint: 'Drag to orbit, wheel to zoom' },
+  { id: 'materials', group: 'Materials', title: 'Material studies', summary: 'Four spheres compare roughness and metalness under the same lights.', hint: 'Drag to orbit, wheel to zoom' },
+  { id: 'scene-graph', group: 'Geometry', title: 'Scene graph rig', summary: 'A parent node rotates a small solar system of meshes.', hint: 'Drag to orbit, wheel to zoom' },
+  { id: 'cameras', group: 'Cameras', title: 'Camera lab', summary: 'Switch between perspective and orthographic projections.', hint: 'Use the camera toggle, then orbit' },
+  { id: 'raycasting', group: 'Interaction', title: 'Raycast playground', summary: 'Click a volume to cast a ray and select the nearest hit.', hint: 'Click objects, drag to orbit' },
+  { id: 'physics', group: 'Simulation', title: 'Gravity drop', summary: 'Bodies fall, spin, and settle on a floor constraint.', hint: 'Drop again, then orbit' },
+  { id: 'texture', group: 'Extensions', title: 'Texture decoder', summary: 'Generate a texture, encode it, then decode it through Texture2D.', hint: 'Run the decode action' },
+  { id: 'postprocess', group: 'Extensions', title: 'Post-process passes', summary: 'Run ordered passes and compare the resulting looks.', hint: 'Run passes to cycle looks' },
+];
+
+export function nextExample(current: ExampleId): ExampleId {
+  const index = examples.findIndex((example) => example.id === current);
+  return examples[(index + 1 + examples.length) % examples.length].id;
+}
