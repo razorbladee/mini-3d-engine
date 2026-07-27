@@ -182,8 +182,8 @@ export class GLTFLoader {
       })
     )
       throw new Error('glTF scene contains no renderable meshes');
-    let min = [Infinity, Infinity, Infinity],
-      max = [-Infinity, -Infinity, -Infinity];
+    const min = [Infinity, Infinity, Infinity];
+    const max = [-Infinity, -Infinity, -Infinity];
     root.traverse((n) => {
       if (n instanceof Mesh)
         for (let i = 0; i < n.geometry.positions.length; i += 3) {

@@ -30,7 +30,11 @@ export class Node {
     return this;
   }
   private isDescendantOf(node: Node) {
-    for (let parent: Node | null = this; parent; parent = parent.parent) if (parent === node) return true;
+    let current: Node | null = this as Node;
+    while (current) {
+      if (current === node) return true;
+      current = current.parent;
+    }
     return false;
   }
   updateWorldMatrix(parentMatrix?: Matrix4) {
