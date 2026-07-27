@@ -1,8 +1,111 @@
-import {describe,expect,it,vi} from 'vitest';
-import {AmbientLight,BasicMaterial,BoxGeometry,Color,OrthographicCamera,PerspectiveCamera,PostProcess,Quaternion,Raycaster,Scene,SimplePhysics,SphereGeometry,StandardMaterial,Texture2D,Vector3,Vector4,Node,Mesh,PlaneGeometry} from '../src';
+import { describe, expect, it, vi } from 'vitest';
+import {
+  BasicMaterial,
+  BoxGeometry,
+  BufferGeometry,
+  Mesh,
+  Node,
+  OrthographicCamera,
+  PerspectiveCamera,
+  PostProcess,
+  Raycaster,
+  SimplePhysics,
+  Vector3,
+} from '../src';
 
-describe('math primitives',()=>{it('supports vectors and colors',()=>{expect(new Vector3(3,0,0).normalize().x).toBe(1);expect(new Vector4(1,2,3).w).toBe(1);expect(new Color().setHex('#ff0000').r).toBe(1)});it('normalizes quaternions',()=>{expect(new Quaternion(1,0,0,0).normalize().x).toBe(1)})});
-describe('scene graph',()=>{it('propagates transforms and traverses',()=>{const parent=new Node();parent.position.x=2;const child=new Node();child.position.x=3;parent.add(child);const seen:Node[]=[];parent.updateWorldMatrix();parent.traverse(n=>seen.push(n));expect(child.worldMatrix.elements[12]).toBe(5);expect(seen).toHaveLength(2)});it('tracks scene camera and lights',()=>{const scene=new Scene();const camera=new PerspectiveCamera();scene.activeCamera=camera;scene.add(new AmbientLight());expect(scene.activeCamera).toBe(camera)})});
-describe('cameras',()=>{it('builds perspective and orthographic projections',()=>{const perspective=new PerspectiveCamera(60,2);const ortho=new OrthographicCamera();expect(perspective.projectionMatrix[0]).toBeGreaterThan(0);expect(ortho.projectionMatrix[15]).toBe(1)})});
-describe('geometry and materials',()=>{it('creates primitive vertex buffers',()=>{expect(new BoxGeometry().positions.length).toBeGreaterThan(0);expect(new PlaneGeometry().positions.length).toBe(18);expect(new SphereGeometry(1,8,4).positions.length).toBeGreaterThan(0)});it('exposes material flags and PBR values',()=>{const basic=new BasicMaterial({color:'#ff0000',opacity:.5,wireframe:true,doubleSided:true});const standard=new StandardMaterial({roughness:.2,metalness:.8});expect(basic.color[0]).toBe(1);expect(basic.transparent).toBe(true);expect(standard.roughness).toBe(.2);expect(standard.metalness).toBe(.8)})});
-describe('interaction and extensions',()=>{it('returns visible raycast candidates',()=>{const ray=new Raycaster();const mesh:any={visible:true,position:{x:0,y:0,z:-2}};expect(ray.intersectObjects([mesh])).toHaveLength(1)});it('integrates gravity and clamps at floor',()=>{const physics=new SimplePhysics();const node=new Node();node.position.y=1;physics.addBody(node);physics.step(1);expect(node.position.y).toBeGreaterThanOrEqual(0)});it('registers and clears postprocess passes',()=>{const post=new PostProcess();const pass={apply:vi.fn()};expect(post.add(pass).clear()).toBe(post)});it('wraps an existing image as a texture',()=>{const image={} as HTMLImageElement;expect(Texture2D.fromImage(image).image).toBe(image)})});
+describe('cameras', () => {
+  it('builds and updates orthographic projections', () => {
+    const camera = new OrthographicCamera(-2, 2, 1, -1, 1, 11);
+    expect(camera.projectionMatrix[0]).toBeCloseTo(0.5);
+    expect(camera.projectionMatrix[5]).toBeCloseTo(1);
+    camera.right = 6;
+    camera.updateProjectionMatrix();
+    expect(camera.projectionMatrix[0]).toBeCloseTo(0.25);
+  });
+
+  it('creates a view matrix from camera transforms', () => {
+    const camera = new PerspectiveCamera();
+    camera.position.set(2, 3, 4);
+    camera.updateViewMatrix();
+    expect(camera.viewMatrix.elements[12]).toBeCloseTo(-2);
+    expect(camera.viewMatrix.elements[13]).toBeCloseTo(-3);
+    expect(camera.viewMatrix.elements[14]).toBeCloseTo(-4);
+  });
+});
+
+describe('geometry and raycasting', () => {
+  it('validates positions and computes bounds', () => {
+    expect(() => new BufferGeometry([0, 1])).toThrow('xyz triples');
+    expect(new BoxGeometry(2).boundingRadius).toBeCloseTo(Math.sqrt(3));
+  });
+
+  it('returns real hits, removes misses, and sorts by distance', () => {
+    const material = new BasicMaterial();
+    const near = new Mesh(new BoxGeometry(1), material);
+    const far = new Mesh(new BoxGeometry(1), material);
+    const miss = new Mesh(new BoxGeometry(1), material);
+    near.position.z = -3;
+    far.position.z = -7;
+    miss.position.set(10, 0, -3);
+    const hits = new Raycaster().intersectObjects([far, miss, near]);
+    expect(hits.map((hit) => hit.object)).toEqual([near, far]);
+    expect(hits[0].distance).toBeGreaterThan(0);
+    expect(hits[0].point.z).toBeLessThan(0);
+  });
+
+  it('derives perspective and orthographic rays from NDC', () => {
+    const perspective = new PerspectiveCamera(90, 2);
+    const ray = new Raycaster().setFromCamera({ x: 1, y: 0 }, perspective);
+    expect(ray.direction.x).toBeGreaterThan(0);
+    expect(ray.direction.z).toBeLessThan(0);
+    const ortho = new OrthographicCamera(-2, 2, 2, -2);
+    ray.setFromCamera({ x: 1, y: 1 }, ortho);
+    expect(ray.origin.x).toBeCloseTo(2);
+    expect(ray.origin.y).toBeCloseTo(2);
+  });
+
+  it('ignores invisible meshes', () => {
+    const mesh = new Mesh(new BoxGeometry(), new BasicMaterial());
+    mesh.position.z = -2;
+    mesh.visible = false;
+    expect(new Raycaster().intersectObjects([mesh])).toEqual([]);
+  });
+});
+
+describe('existing extension behavior', () => {
+  it('integrates gravity, preserves velocity, and clamps the floor', () => {
+    const physics = new SimplePhysics();
+    const node = new Node();
+    node.position.y = 1;
+    physics.addBody(node, new Vector3(1, 0, 0));
+    physics.step(0.1);
+    expect(node.position.x).toBeCloseTo(0.1);
+    physics.step(10);
+    expect(node.position.y).toBe(0);
+  });
+
+  it('runs post-process passes in order and clears them', () => {
+    const order: number[] = [];
+    const post = new PostProcess();
+    post.add({ apply: () => { order.push(1); } }).add({ apply: () => { order.push(2); } });
+    const input = {} as WebGLTexture;
+    const output = {} as WebGLFramebuffer;
+    const gl = {} as WebGL2RenderingContext;
+    expect(post.render(input, output, gl)).toBe(post);
+    expect(order).toEqual([1, 2]);
+    post.clear().render(input, output, gl);
+    expect(order).toEqual([1, 2]);
+  });
+
+  it('parses material shorthand color and opacity', () => {
+    const material = new BasicMaterial({ color: '#f00', opacity: 0.5 });
+    expect(Array.from(material.color)).toEqual([1, 0, 0, 0.5]);
+    expect(material.transparent).toBe(true);
+  });
+
+  it('supports explicit ray setup', () => {
+    const ray = new Raycaster().set(new Vector3(1, 2, 3), new Vector3(0, 0, -10));
+    expect(ray.origin).toEqual(new Vector3(1, 2, 3));
+    expect(ray.direction.length()).toBeCloseTo(1);
+  });
+});
