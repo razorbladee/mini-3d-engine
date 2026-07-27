@@ -1,4 +1,18 @@
 import {
+  BufferAttribute,
+  BufferGeometry,
+  Euler,
+  Frustum,
+  Matrix4,
+  NullAudioHooks,
+  ParticleSystem,
+  PerformanceMetrics,
+  PhysicsAdapter,
+  Quaternion,
+  SphereBounds,
+  WebGLRenderer,
+  WebGPURenderer,
+  inspectScene,
   AabbBounds,
   AmbientLight,
   BasicMaterial,
@@ -33,11 +47,13 @@ import {
 import { examples, ExampleId } from './showcase-registry';
 import { pointerToNdc } from './showcase-utils';
 import './showcase.css';
+import './showcase-metrics.css';
 type Runtime = {
   engine?: Engine;
   controls?: OrbitControls;
   update?: (t: { deltaTime: number; elapsed: number }) => void;
   dispose?: () => void;
+  stats?: () => string;
 };
 const root = document.querySelector<HTMLDivElement>('#showcase');
 if (!root) throw new Error('The examples page requires a #showcase root');
@@ -66,6 +82,25 @@ function canvas() {
   activeCanvas.className = 'scene-canvas';
   viewport.append(activeCanvas);
   return activeCanvas;
+}
+function addToolbar(actions: Array<{ label: string; run: () => void }>) {
+  const bar = document.createElement('div');
+  bar.className = 'lab-toolbar';
+  for (const action of actions) {
+    const button = document.createElement('button');
+    button.className = 'lab-control';
+    button.textContent = action.label;
+    button.onclick = action.run;
+    bar.append(button);
+  }
+  viewport.append(bar);
+  return bar;
+}
+function addPanel(className = '') {
+  const panel = document.createElement('pre');
+  panel.className = `lab-panel ${className}`.trim();
+  viewport.append(panel);
+  return panel;
 }
 function three(): Runtime {
   const c = canvas(),
@@ -261,15 +296,29 @@ function model(url: string, label: string): Runtime {
     s = r.engine!.scene;
   studio(s);
   status('loading ' + label);
+  let disposed = false;
+  let detail = 'loading';
   new GLTFLoader()
     .load(url)
     .then((m) => {
+      if (disposed) return;
       m.scene.position.z = -5;
       s.add(m.scene);
+      let meshes = 0;
+      m.scene.traverse((node) => {
+        if (node instanceof Mesh) meshes += 1;
+      });
       r.controls!.focus(new Vector3(0, 0, -5), Math.max(4, Math.min(12, m.bounds.radius * 2.8)));
-      status(label + ' loaded · ' + m.animations.length + ' animations');
+      detail = `${label} · ${meshes} meshes · radius ${m.bounds.radius.toFixed(2)} · ${m.animations.length} animations`;
+      status(detail);
     })
-    .catch((e) => status(e instanceof Error ? e.message : 'model unavailable'));
+    .catch((e) => {
+      if (!disposed) status(e instanceof Error ? e.message : 'model unavailable');
+    });
+  r.stats = () => detail;
+  r.dispose = () => {
+    disposed = true;
+  };
   return r;
 }
 function ray(): Runtime {
@@ -356,7 +405,23 @@ function production(id: ExampleId): Runtime {
         },
       ]);
     values.play(clip);
+    const controls = addToolbar([
+      { label: 'Play loop', run: () => values.play(clip) },
+      { label: 'Play once', run: () => values.play(clip, { loop: false }) },
+      { label: 'Pause', run: () => values.pause() },
+      { label: 'Resume', run: () => values.resume() },
+      { label: 'Stop', run: () => values.stop() },
+      {
+        label: 'Speed ×2',
+        run: () => {
+          values.timeScale = values.timeScale === 1 ? 2 : 1;
+          status(`timeScale ${values.timeScale}×`);
+        },
+      },
+    ]);
     r.update = ({ deltaTime }) => values.update(deltaTime);
+    r.stats = () => `clip ${values.playing ? 'playing' : 'paused'} · t ${values.time.toFixed(1)}s`;
+    r.dispose = () => controls.remove();
     return r;
   }
   if (id === 'asset-manager') {
@@ -368,23 +433,44 @@ function production(id: ExampleId): Runtime {
       return tile;
     });
     let loaderCalls = 0;
+    let requestCount = 0;
     let disposed = false;
     const loader = async () => {
       loaderCalls += 1;
       await new Promise((resolve) => setTimeout(resolve, 300));
       return '#59c7a5';
     };
-    const requests = tiles.map((tile) =>
-      manager.load('shared-tile', loader).then((color) => {
-        tile.material.color.set(BasicMaterial.parseColor(color));
-      }),
-    );
-    status('loading 3 requests…');
-    void Promise.all(requests).then(() => {
-      if (!disposed) status(`${loaderCalls} loader call · 3 requests`);
-    });
+    const requestAll = () => {
+      requestCount += tiles.length;
+      status('loading 3 requests…');
+      const requests = tiles.map((tile) =>
+        manager
+          .load('shared-tile', loader, { onProgress: (p) => status(p.loaded ? 'cache hit / loaded' : 'loading') })
+          .then((color) => {
+            tile.material.color.set(BasicMaterial.parseColor(color));
+          }),
+      );
+      void Promise.all(requests).then(() => {
+        if (!disposed) status(`${loaderCalls} loader call${loaderCalls === 1 ? '' : 's'} · ${requestCount} requests`);
+      });
+    };
+    const controls = addToolbar([
+      { label: 'Request ×3', run: requestAll },
+      {
+        label: 'Clear cache',
+        run: () => {
+          manager.clear('shared-tile');
+          tiles.forEach((tile) => tile.material.color.set(BasicMaterial.parseColor('#df8f56')));
+          status('cache cleared');
+        },
+      },
+    ]);
+    requestAll();
+    r.stats = () => `requests ${requestCount} · loader calls ${loaderCalls} · cache ${manager.size}`;
     r.dispose = () => {
       disposed = true;
+      manager.clear();
+      controls.remove();
     };
     return r;
   }
@@ -550,6 +636,461 @@ function postprocessLab(): Runtime {
   r.dispose = () => button.remove();
   return r;
 }
+function customGeometry(): Runtime {
+  const positions = [
+    -1, -1, 1, 1, -1, 1, 0, 1, 0, 1, -1, 1, 1, -1, -1, 0, 1, 0, 1, -1, -1, -1, -1, -1, 0, 1, 0, -1, -1, -1, -1, -1, 1,
+    0, 1, 0, -1, -1, -1, 1, -1, -1, 1, -1, 1, -1, -1, -1, 1, -1, 1, -1, -1, 1,
+  ];
+  let geometry = new BufferGeometry(positions);
+  const position = new BufferAttribute(geometry.positions, 3);
+  const mesh = new Mesh(geometry, mat('#df8f56', 0.28, 0.25));
+  mesh.position.z = -5;
+  const r = scene3D([mesh]);
+  const panel = addPanel();
+  let flattened = false;
+  const describe = () => {
+    panel.textContent = `position: ${position.count} × ${position.itemSize}\nnormal: ${geometry.attributes.normal.count} × 3\nuv: ${geometry.attributes.uv.count} × 2\nradius: ${geometry.boundingRadius.toFixed(2)}`;
+  };
+  const controls = addToolbar([
+    {
+      label: 'Replace vertex data',
+      run: () => {
+        flattened = !flattened;
+        const next = positions.map((value, index) => (index % 3 === 1 && value > 0 ? (flattened ? 0.25 : 1) : value));
+        geometry = new BufferGeometry(next);
+        mesh.geometry = geometry;
+        describe();
+      },
+    },
+  ]);
+  describe();
+  r.update = ({ elapsed }) => {
+    mesh.rotation.y = elapsed * 0.4;
+  };
+  r.stats = () => `custom vertices ${geometry.vertexCount} · ${flattened ? 'flattened' : 'pyramid'}`;
+  r.dispose = () => {
+    panel.remove();
+    controls.remove();
+  };
+  return r;
+}
+function materialFlags(): Runtime {
+  const materials = [
+    new BasicMaterial({ color: '#8068dc' }),
+    new BasicMaterial({ color: '#df8f56', wireframe: true }),
+    new BasicMaterial({ color: '#59c7a5', doubleSided: true }),
+    new BasicMaterial({ color: '#e19bc9', transparent: true, opacity: 0.42 }),
+  ];
+  const meshes = materials.map((material, i) => {
+    const mesh = new Mesh(i === 2 ? new PlaneGeometry(1.5, 1.5) : new TorusGeometry(0.7, 0.25, 24, 12), material);
+    mesh.position.set((i - 1.5) * 1.65, 0, -5.5);
+    return mesh;
+  });
+  const r = scene3D(meshes);
+  const panel = addPanel();
+  panel.textContent = 'left → right\nBasic unlit\nWireframe\nDouble-sided plane\nTransparent';
+  r.update = ({ elapsed }) => meshes.forEach((mesh, i) => (mesh.rotation.y = elapsed * (0.25 + i * 0.08)));
+  r.stats = () => 'unlit · wireframe · double-sided · alpha';
+  r.dispose = () => panel.remove();
+  return r;
+}
+function transformLab(): Runtime {
+  const r = three();
+  studio(r.engine!.scene);
+  const eulerNode = new Mesh(new BoxGeometry(1), mat('#8068dc'));
+  const quaternionNode = new Mesh(new BoxGeometry(1), mat('#df8f56'));
+  const matrixNode = new Mesh(new BoxGeometry(1), mat('#59c7a5'));
+  eulerNode.position.set(-1.8, 0, -5);
+  quaternionNode.position.set(0, 0, -5);
+  matrixNode.matrixOverride = new Matrix4().elements;
+  r.engine!.scene.add(eulerNode, quaternionNode, matrixNode);
+  const q = new Quaternion();
+  const matrix = new Matrix4();
+  const panel = addPanel();
+  panel.textContent = 'purple: Euler\norange: Quaternion\ngreen: Matrix4 override';
+  r.update = ({ elapsed }) => {
+    eulerNode.rotation.set(elapsed * 0.3, elapsed * 0.6, 0);
+    q.setFromAxisAngle(new Vector3(0, 1, 0), elapsed * 0.6);
+    quaternionNode.setRotationFromQuaternion(q.x, q.y, q.z, q.w);
+    matrix.compose(new Vector3(1.8, 0, -5), new Vector3(1, 1, 1), new Euler(elapsed * 0.3, elapsed * 0.6, 0));
+    matrixNode.matrixOverride = matrix.elements;
+  };
+  r.stats = () => 'Euler · Quaternion · Matrix4';
+  r.dispose = () => panel.remove();
+  return r;
+}
+function frustumCulling(): Runtime {
+  const r = three();
+  const frustum = new Frustum();
+  const geometry = new SphereGeometry(0.34, 14, 10);
+  const objects = Array.from({ length: 24 }, (_, i) => {
+    const angle = (i / 24) * Math.PI * 2;
+    const mesh = new Mesh(geometry, new BasicMaterial({ color: '#59c7a5' }));
+    mesh.position.set(Math.cos(angle) * 6, Math.sin(angle * 2) * 2.2, -6 + Math.sin(angle) * 5);
+    r.engine!.scene.add(mesh);
+    return mesh;
+  });
+  const probe = new Vector3(0, 0, -5);
+  let visible = 0;
+  let pointInside = false;
+  r.update = () => {
+    r.engine!.camera.updateViewMatrix();
+    frustum.setFromCamera(r.engine!.camera);
+    pointInside = frustum.intersectsPoint(probe);
+    visible = 0;
+    for (const mesh of objects) {
+      const inside = frustum.intersectsSphere(new SphereBounds(mesh.position, geometry.boundingRadius));
+      mesh.material.color.set(BasicMaterial.parseColor(inside ? '#59c7a5' : '#653c55'));
+      if (inside) visible += 1;
+    }
+    status(`${visible}/${objects.length} spheres · probe point ${pointInside ? 'inside' : 'outside'}`);
+  };
+  r.stats = () => `frustum spheres ${visible}/${objects.length} · point ${pointInside ? 'in' : 'out'}`;
+  return r;
+}
+function particles(): Runtime {
+  const r = three();
+  const system = new ParticleSystem(96, new Vector3(0, -4.5, 0));
+  const geometry = new SphereGeometry(0.09, 8, 6);
+  const views = Array.from({ length: system.maxParticles }, () => {
+    const mesh = new Mesh(geometry, new BasicMaterial({ color: '#df8f56' }));
+    mesh.visible = false;
+    r.engine!.scene.add(mesh);
+    return mesh;
+  });
+  let seed = 1;
+  const random = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
+  const burst = () => {
+    for (let i = 0; i < 24; i += 1)
+      system.emit(
+        new Vector3(0, -0.8, -5),
+        new Vector3((random() - 0.5) * 3, 2.5 + random() * 3, (random() - 0.5) * 2),
+        1.5 + random(),
+      );
+  };
+  burst();
+  const controls = addToolbar([
+    { label: 'Emit burst', run: burst },
+    { label: 'Clear', run: () => system.clear() },
+  ]);
+  let timer = 0;
+  r.update = ({ deltaTime }) => {
+    timer += deltaTime;
+    if (timer > 0.12) {
+      timer = 0;
+      system.emit(new Vector3(0, -0.8, -5), new Vector3((random() - 0.5) * 2, 4 + random(), 0), 2);
+    }
+    system.update(deltaTime);
+    views.forEach((view, i) => {
+      const particle = system.particles[i];
+      view.visible = Boolean(particle);
+      if (particle) view.position.copy(particle.position);
+    });
+  };
+  r.stats = () => `particles ${system.particles.length}/${system.maxParticles}`;
+  r.dispose = () => controls.remove();
+  return r;
+}
+function performanceLab(): Runtime {
+  const r = three();
+  studio(r.engine!.scene);
+  const geometry = new BoxGeometry(0.28);
+  const material = new StandardMaterial({ color: '#8068dc', roughness: 0.45 });
+  const meshes = Array.from({ length: 180 }, (_, i) => {
+    const mesh = new Mesh(geometry, material);
+    mesh.position.set(((i % 15) - 7) * 0.42, (Math.floor(i / 15) - 5.5) * 0.42, -6 - (i % 3) * 0.2);
+    r.engine!.scene.add(mesh);
+    return mesh;
+  });
+  let stressed = true;
+  const controls = addToolbar([
+    {
+      label: 'Toggle 180 meshes',
+      run: () => {
+        stressed = !stressed;
+        meshes.forEach((mesh) => (mesh.visible = stressed));
+      },
+    },
+  ]);
+  r.update = ({ elapsed }) => meshes.forEach((mesh, i) => (mesh.rotation.y = elapsed * 0.2 + i * 0.03));
+  r.stats = () => `workload ${stressed ? 180 : 0} meshes`;
+  r.dispose = () => controls.remove();
+  return r;
+}
+function inspectorLab(): Runtime {
+  const r = three();
+  studio(r.engine!.scene);
+  r.engine!.scene.name = 'Inspector scene';
+  const rig = new Node();
+  rig.name = 'Orbit rig';
+  const meshes = ['Alpha', 'Beta', 'Gamma'].map((name, i) => {
+    const mesh = new Mesh(new BoxGeometry(0.7), mat(['#8068dc', '#df8f56', '#59c7a5'][i]));
+    mesh.name = name;
+    mesh.position.set((i - 1) * 1.3, 0, -5);
+    rig.add(mesh);
+    return mesh;
+  });
+  r.engine!.scene.add(rig);
+  const panel = addPanel('inspector-panel');
+  let attached = true;
+  const controls = addToolbar([
+    { label: 'Toggle Beta', run: () => (meshes[1].visible = !meshes[1].visible) },
+    {
+      label: 'Add / remove rig',
+      run: () => {
+        if (attached) r.engine!.scene.remove(rig);
+        else r.engine!.scene.add(rig);
+        attached = !attached;
+      },
+    },
+  ]);
+  let elapsedSinceSnapshot = 1;
+  r.update = ({ deltaTime, elapsed }) => {
+    rig.rotation.y = Math.sin(elapsed * 0.4) * 0.25;
+    elapsedSinceSnapshot += deltaTime;
+    if (elapsedSinceSnapshot > 0.25) {
+      elapsedSinceSnapshot = 0;
+      panel.textContent = JSON.stringify(inspectScene(r.engine!.scene), null, 2);
+    }
+  };
+  r.stats = () => `snapshot nodes ${meshes.length + 2}`;
+  r.dispose = () => {
+    panel.remove();
+    controls.remove();
+  };
+  return r;
+}
+function resourceLifecycle(): Runtime {
+  const r = three();
+  const renderer = r.engine!.renderer as WebGLRenderer;
+  const shared = new BoxGeometry(0.9);
+  let sharedTexture: Texture2D | undefined;
+  let disposed = false;
+  const meshes = [-1.3, 0, 1.3].map((x) => {
+    const mesh = new Mesh(shared, new BasicMaterial({ color: '#ffffff' }));
+    mesh.position.set(x, 0, -5);
+    r.engine!.scene.add(mesh);
+    return mesh;
+  });
+  const controls = addToolbar([
+    {
+      label: 'Release shared geometry',
+      run: () => {
+        renderer.releaseGeometry(shared);
+        status('geometry released; next frame uploads once again');
+      },
+    },
+    {
+      label: 'Release shared texture',
+      run: () => {
+        if (sharedTexture) renderer.releaseTexture(sharedTexture);
+        status('texture released; next frame uploads once again');
+      },
+    },
+  ]);
+  void texture('checker').then((loaded) => {
+    if (disposed) return;
+    sharedTexture = loaded;
+    meshes.forEach((mesh) => (mesh.material.map = loaded));
+  });
+  r.update = ({ elapsed }) => meshes.forEach((mesh, i) => (mesh.rotation.y = elapsed * 0.35 + i));
+  r.stats = () => {
+    const gpu = renderer.resourceStats;
+    return `GPU geometry ${gpu.geometries} · textures ${gpu.textures} · programs ${gpu.programs}`;
+  };
+  r.dispose = () => {
+    disposed = true;
+    controls.remove();
+  };
+  return r;
+}
+function inputActions(): Runtime {
+  const r = three();
+  const input = new InputMap();
+  r.engine!.track(input);
+  const left = input.bind('left', ['ArrowLeft']);
+  const right = input.bind('right', ['ArrowRight']);
+  const jump = input.bind('jump', [' ', 'ArrowUp']);
+  const marker = new Mesh(new BoxGeometry(0.7), new BasicMaterial({ color: '#59c7a5' }));
+  marker.position.z = -5;
+  r.engine!.scene.add(marker);
+  const panel = addPanel();
+  let lastEdge = 'none';
+  let enterBinding = false;
+  const controls = addToolbar([
+    {
+      label: 'Rebind jump',
+      run: () => {
+        enterBinding = !enterBinding;
+        input.bind('jump', enterBinding ? ['Enter'] : [' ', 'ArrowUp']);
+        status(`jump: ${enterBinding ? 'Enter' : 'Space / ArrowUp'}`);
+      },
+    },
+  ]);
+  r.update = ({ deltaTime }) => {
+    if (left.isDown()) marker.position.x -= deltaTime * 2;
+    if (right.isDown()) marker.position.x += deltaTime * 2;
+    if (jump.wasPressed()) lastEdge = 'jump pressed';
+    if (jump.wasReleased()) lastEdge = 'jump released';
+    panel.textContent = `left down: ${left.isDown()}\nright down: ${right.isDown()}\njump pressed: ${jump.wasPressed()}\njump released: ${jump.wasReleased()}\nlast edge: ${lastEdge}`;
+  };
+  r.stats = () => `input ${lastEdge}`;
+  r.dispose = () => {
+    r.engine!.untrack(input);
+    input.dispose();
+    panel.remove();
+    controls.remove();
+  };
+  return r;
+}
+function physicsAdapterLab(): Runtime {
+  const r = three();
+  studio(r.engine!.scene);
+  plane(r.engine!.scene);
+  const adapter: PhysicsAdapter = new SimplePhysics();
+  const bodies: Mesh[] = [];
+  let serial = 0;
+  const add = () => {
+    const mesh = new Mesh(new SphereGeometry(0.38, 16, 10), mat(serial % 2 ? '#df8f56' : '#8068dc'));
+    mesh.position.set(((serial % 5) - 2) * 0.8, 3 + (serial % 3), -5);
+    adapter.addBody(mesh, new Vector3(0, 0, 0));
+    r.engine!.scene.add(mesh);
+    bodies.push(mesh);
+    serial += 1;
+  };
+  add();
+  add();
+  const controls = addToolbar([
+    { label: 'Add body', run: add },
+    {
+      label: 'Remove body',
+      run: () => {
+        const mesh = bodies.pop();
+        if (mesh) {
+          adapter.removeBody(mesh);
+          r.engine!.scene.remove(mesh);
+        }
+      },
+    },
+  ]);
+  r.update = ({ deltaTime }) => adapter.step(deltaTime);
+  r.stats = () => `adapter bodies ${bodies.length}`;
+  r.dispose = () => {
+    adapter.dispose?.();
+    controls.remove();
+  };
+  return r;
+}
+function gltfFeatures(): Runtime {
+  const r = three();
+  studio(r.engine!.scene);
+  const sources = {
+    glTF: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/Box/glTF/Box.gltf',
+    GLB: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/Box/glTF-Binary/Box.glb',
+  };
+  let current: Node | null = null;
+  let format: keyof typeof sources = 'glTF';
+  let generation = 0;
+  let detail = 'loading';
+  const load = async () => {
+    const ownGeneration = ++generation;
+    status(`loading ${format}…`);
+    try {
+      const result = await new GLTFLoader().load(sources[format]);
+      if (ownGeneration !== generation) return;
+      if (current) r.engine!.scene.remove(current);
+      current = result.scene;
+      r.engine!.scene.add(current);
+      let meshes = 0;
+      current.traverse((node) => {
+        if (node instanceof Mesh) meshes += 1;
+      });
+      detail = `${format} · ${meshes} meshes · radius ${result.bounds.radius.toFixed(2)} · ${result.animations.length} animations`;
+      status(detail);
+    } catch (error) {
+      if (ownGeneration === generation) status(error instanceof Error ? error.message : 'glTF load failed');
+    }
+  };
+  const controls = addToolbar([
+    {
+      label: 'Switch glTF / GLB',
+      run: () => {
+        format = format === 'glTF' ? 'GLB' : 'glTF';
+        void load();
+      },
+    },
+  ]);
+  void load();
+  r.stats = () => detail;
+  r.dispose = () => {
+    generation += 1;
+    controls.remove();
+  };
+  return r;
+}
+function audioHooksLab(): Runtime {
+  const r = three();
+  const silent = new NullAudioHooks();
+  const speaker = new Mesh(new TorusGeometry(1, 0.32, 28, 12), new BasicMaterial({ color: '#8068dc' }));
+  speaker.position.z = -5;
+  r.engine!.scene.add(speaker);
+  const events: string[] = [];
+  const hooks = {
+    play: (id: string) => events.unshift(`play(${id})`),
+    stop: (id: string) => events.unshift(`stop(${id})`),
+    setVolume: (id: string, volume: number) => events.unshift(`volume(${id}, ${volume.toFixed(1)})`),
+  };
+  silent.play('safe-no-op');
+  const panel = addPanel();
+  const renderEvents = () => (panel.textContent = events.slice(0, 6).join('\n') || 'No audio events yet');
+  const controls = addToolbar([
+    { label: 'Play', run: () => (hooks.play('ambient'), renderEvents()) },
+    { label: 'Stop', run: () => (hooks.stop('ambient'), renderEvents()) },
+    { label: 'Volume 50%', run: () => (hooks.setVolume('ambient', 0.5), renderEvents()) },
+  ]);
+  renderEvents();
+  r.update = ({ elapsed }) => speaker.scale.setScalar(1 + Math.sin(elapsed * 4) * 0.05);
+  r.stats = () => `audio events ${events.length} · backend mock`;
+  r.dispose = () => {
+    panel.remove();
+    controls.remove();
+  };
+  return r;
+}
+function rendererBackends(): Runtime {
+  const r = three();
+  const mesh = new Mesh(new BoxGeometry(1.4), new BasicMaterial({ color: '#59c7a5' }));
+  mesh.position.z = -5;
+  r.engine!.scene.add(mesh);
+  let capability = 'WebGL2 active';
+  const panel = addPanel();
+  const refresh = () => {
+    const gl = r.engine!.renderer as WebGLRenderer;
+    panel.textContent = `Active: WebGLRenderer\nCanvas: ${gl.canvas.width} × ${gl.canvas.height}\nWebGPU: ${'gpu' in navigator ? 'API detected; backend reserved' : 'not available'}`;
+  };
+  const controls = addToolbar([
+    {
+      label: 'Probe WebGPU',
+      run: () => {
+        try {
+          new WebGPURenderer(document.createElement('canvas'));
+        } catch (error) {
+          capability = error instanceof Error ? error.message : 'WebGPU probe failed';
+          status(capability);
+        }
+        refresh();
+      },
+    },
+  ]);
+  refresh();
+  r.update = ({ elapsed }) => (mesh.rotation.y = elapsed * 0.4);
+  r.stats = () => capability;
+  r.dispose = () => {
+    panel.remove();
+    controls.remove();
+  };
+  return r;
+}
 function build(id: ExampleId): Runtime {
   if (id === 'primitives') return primitives();
   if (id === 'advanced-primitives') return advanced();
@@ -570,6 +1111,19 @@ function build(id: ExampleId): Runtime {
   if (id === 'cameras') return cameras();
   if (id === 'texture') return textureLab();
   if (id === 'postprocess') return postprocessLab();
+  if (id === 'custom-geometry') return customGeometry();
+  if (id === 'material-flags') return materialFlags();
+  if (id === 'transform-lab') return transformLab();
+  if (id === 'frustum-culling') return frustumCulling();
+  if (id === 'particles') return particles();
+  if (id === 'performance-metrics') return performanceLab();
+  if (id === 'scene-inspector') return inspectorLab();
+  if (id === 'resource-lifecycle') return resourceLifecycle();
+  if (id === 'input-actions') return inputActions();
+  if (id === 'physics-adapter') return physicsAdapterLab();
+  if (id === 'gltf-features') return gltfFeatures();
+  if (id === 'audio-hooks') return audioHooksLab();
+  if (id === 'renderer-backends') return rendererBackends();
   // Exhaustive: every ExampleId above is handled, so this is unreachable.
   throw new Error(`No scene registered for example ${id}`);
 }
@@ -601,6 +1155,42 @@ function renderNav() {
     .querySelectorAll<HTMLButtonElement>('.nav-item')
     .forEach((b) => (b.onclick = () => select(b.dataset.id as ExampleId)));
 }
+function startWithMetrics(current: Runtime) {
+  if (!current.engine) return;
+  const metrics = new PerformanceMetrics();
+  const hud = document.createElement('div');
+  hud.className = 'metrics-hud';
+  viewport.append(hud);
+  let smoothedFps = 0;
+  let nextHudUpdate = 0;
+  const sceneUpdate = current.update;
+  current.engine.start((frame) => {
+    sceneUpdate?.(frame);
+    metrics.update(frame.deltaTime);
+    const instantFps = metrics.fps;
+    smoothedFps = smoothedFps ? smoothedFps * 0.9 + instantFps * 0.1 : instantFps;
+    if (frame.elapsed < nextHudUpdate) return;
+    nextHudUpdate = frame.elapsed + 0.25;
+    let meshes = 0;
+    let vertices = 0;
+    current.engine!.scene.traverse((node) => {
+      if (node instanceof Mesh && node.visible) {
+        meshes += 1;
+        vertices += node.geometry.vertexCount;
+      }
+    });
+    const canvas = current.engine!.renderer.canvas;
+    const detail = current.stats?.();
+    hud.textContent = [
+      `FPS ${smoothedFps.toFixed(0)}  ·  ${Math.min(frame.deltaTime * 1000, 999).toFixed(1)} ms`,
+      `meshes ${meshes}  ·  vertices ${vertices.toLocaleString()}`,
+      `canvas ${canvas.width}×${canvas.height}  ·  DPR ${(globalThis.devicePixelRatio || 1).toFixed(1)}`,
+      detail,
+    ]
+      .filter(Boolean)
+      .join('\n');
+  });
+}
 function select(id: ExampleId) {
   // Scenes may register their own teardown (extra DOM, listeners); run it
   // before the engine goes away so nothing leaks between scenes.
@@ -620,7 +1210,7 @@ function select(id: ExampleId) {
   renderNav();
   runtime = build(id);
   if (runtime.engine) {
-    runtime.engine.start(runtime.update);
+    startWithMetrics(runtime);
     runtime.engine.resize();
   }
 }

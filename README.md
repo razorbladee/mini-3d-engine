@@ -23,7 +23,7 @@ Ambient/Directional/Point/Spot/Hemisphere lights (Spot — настоящий к
 Raycaster с пересечением треугольников, OrbitControls с focus, SimplePhysics,
 PostProcess, GLTFLoader для JSON glTF/GLB и AnimationClip/AnimationMixer.
 
-Состояние качества: 330 тестов, `npm run verify` зелёный. История аудита и
+Состояние качества проверяется командой `npm run verify`. История аудита и
 разбор исправленных дефектов — в [AUDIT-TZ.md](docs/AUDIT-TZ.md).
 
 ## Запуск
@@ -37,7 +37,12 @@ npm run verify   # format + lint + typecheck + test + build
 Отдельные проверки: `npm run lint`, `npm run typecheck`, `npm run test`,
 `npm run test:coverage`, `npm run build`.
 
-Главная страница примеров: `index.html`. Она содержит scene browser с геометрией, материалами, procedural/image textures, lighting, physics, interaction, post-processing и glTF model scenes.
+Главная страница примеров: `index.html`. Scene browser покрывает геометрию,
+материалы, transforms, procedural/image textures, lighting, cameras, bounds,
+input, frustum culling, particles, physics, animation, assets, GPU resources,
+scene inspection, renderer/audio boundaries, post-processing и glTF/GLB.
+Каждая сцена показывает FPS, frame time, количество видимых meshes/vertices,
+размер canvas, DPR и специфичные для примера показатели.
 
 ## Правило проекта
 

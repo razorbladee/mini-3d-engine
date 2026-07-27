@@ -180,6 +180,15 @@ describe('WebGLRenderer draw pass', () => {
     expect(gl.__draws[0].count).toBe(geometry.positions.length / 3);
   });
 
+  it('renders wireframe materials as one line loop per triangle', () => {
+    const { gl, renderer, scene, camera } = setupRenderer();
+    const geometry = new BoxGeometry(1);
+    scene.add(new Mesh(geometry, new BasicMaterial({ wireframe: true })));
+    renderer.render(scene, camera);
+    expect(gl.__draws).toHaveLength(geometry.vertexCount / 3);
+    expect(gl.__draws.every((draw) => draw.mode === gl.LINE_LOOP)).toBe(true);
+  });
+
   it('renders transparent meshes after opaque ones with depth writes disabled', () => {
     const { gl, renderer, scene, camera } = setupRenderer();
     const opaque = new Mesh(new BoxGeometry(1), new BasicMaterial());

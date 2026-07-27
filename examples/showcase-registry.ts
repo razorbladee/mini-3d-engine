@@ -30,7 +30,20 @@ export type ExampleId =
   | 'transparent'
   | 'bounds-input'
   | 'texture'
-  | 'postprocess';
+  | 'postprocess'
+  | 'custom-geometry'
+  | 'material-flags'
+  | 'transform-lab'
+  | 'frustum-culling'
+  | 'particles'
+  | 'performance-metrics'
+  | 'scene-inspector'
+  | 'resource-lifecycle'
+  | 'input-actions'
+  | 'physics-adapter'
+  | 'gltf-features'
+  | 'audio-hooks'
+  | 'renderer-backends';
 export type ExampleMeta = { id: ExampleId; group: ExampleGroup; title: string; summary: string; hint: string };
 export const examples: ExampleMeta[] = [
   {
@@ -150,7 +163,7 @@ export const examples: ExampleMeta[] = [
     group: 'Production',
     title: 'Asset manager',
     summary: 'Deduplicated loading with progress.',
-    hint: 'Load the same asset twice',
+    hint: 'Three requests share one load',
   },
   {
     id: 'transparent',
@@ -179,6 +192,97 @@ export const examples: ExampleMeta[] = [
     title: 'Post-process passes',
     summary: 'Ordered passes and look changes.',
     hint: 'Run passes',
+  },
+  {
+    id: 'custom-geometry',
+    group: 'Geometry',
+    title: 'Custom geometry',
+    summary: 'BufferGeometry and BufferAttribute built from raw vertex channels.',
+    hint: 'Inspect attributes, then orbit',
+  },
+  {
+    id: 'material-flags',
+    group: 'Materials',
+    title: 'Material flags',
+    summary: 'Unlit, wireframe, double-sided and transparent material modes.',
+    hint: 'Orbit to compare both sides',
+  },
+  {
+    id: 'transform-lab',
+    group: 'Geometry',
+    title: 'Transform lab',
+    summary: 'Euler, quaternion and matrix transforms side by side.',
+    hint: 'Watch three transform paths',
+  },
+  {
+    id: 'frustum-culling',
+    group: 'Interaction',
+    title: 'Frustum culling',
+    summary: 'Point and sphere bounds tested against the live camera frustum.',
+    hint: 'Orbit to change visibility',
+  },
+  {
+    id: 'particles',
+    group: 'Simulation',
+    title: 'Particle fountain',
+    summary: 'Emission, velocity, gravity, lifetime and capacity.',
+    hint: 'Emit a burst or clear',
+  },
+  {
+    id: 'performance-metrics',
+    group: 'Production',
+    title: 'Performance metrics',
+    summary: 'FPS, frame time and a switchable mesh workload.',
+    hint: 'Toggle the stress load',
+  },
+  {
+    id: 'scene-inspector',
+    group: 'Production',
+    title: 'Scene inspector',
+    summary: 'A live snapshot of names, node types and hierarchy.',
+    hint: 'Toggle a branch',
+  },
+  {
+    id: 'resource-lifecycle',
+    group: 'Production',
+    title: 'GPU resource lifecycle',
+    summary: 'Shared geometry upload, release and lazy re-upload.',
+    hint: 'Release the shared geometry',
+  },
+  {
+    id: 'input-actions',
+    group: 'Interaction',
+    title: 'Input actions',
+    summary: 'Held, pressed and released keyboard action states.',
+    hint: 'Use arrows and Space',
+  },
+  {
+    id: 'physics-adapter',
+    group: 'Simulation',
+    title: 'Physics adapter',
+    summary: 'SimplePhysics used exclusively through the backend contract.',
+    hint: 'Add or remove a body',
+  },
+  {
+    id: 'gltf-features',
+    group: 'Models',
+    title: 'glTF feature diagnostics',
+    summary: 'Switch between JSON glTF and binary GLB loading paths.',
+    hint: 'Switch format and inspect metadata',
+  },
+  {
+    id: 'audio-hooks',
+    group: 'Extensions',
+    title: 'Audio hooks',
+    summary: 'Backend-neutral play, stop and volume event integration.',
+    hint: 'Trigger mock audio events',
+  },
+  {
+    id: 'renderer-backends',
+    group: 'Extensions',
+    title: 'Renderer backends',
+    summary: 'Active WebGL backend and explicit WebGPU capability reporting.',
+    hint: 'Probe WebGPU support',
   },
 ];
 export function nextExample(current: ExampleId) {

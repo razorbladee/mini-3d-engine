@@ -1,0 +1,105 @@
+.metrics-hud {
+  position: absolute;
+  z-index: 4;
+  top: 14px;
+  left: 14px;
+  min-width: 218px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 6px;
+  background: rgba(10, 12, 20, 0.78);
+  color: #dcd8ed;
+  font:
+    500 0.66rem/1.55 DM Mono,
+    monospace;
+  white-space: pre-line;
+  pointer-events: none;
+  backdrop-filter: blur(7px);
+}
+.lab-toolbar {
+  position: absolute;
+  z-index: 5;
+  right: 16px;
+  bottom: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 7px;
+  max-width: min(620px, calc(100% - 32px));
+}
+.lab-control {
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  background: rgba(18, 20, 32, 0.88);
+  color: #e9e6f5;
+  font:
+    500 0.72rem DM Mono,
+    monospace;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+}
+.lab-control:hover {
+  border-color: rgba(255, 255, 255, 0.45);
+  background: rgba(42, 36, 64, 0.94);
+}
+.lab-panel {
+  position: absolute;
+  z-index: 3;
+  top: 14px;
+  right: 14px;
+  max-width: min(390px, calc(100% - 270px));
+  max-height: calc(100% - 88px);
+  overflow: auto;
+  margin: 0;
+  padding: 11px 13px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 6px;
+  background: rgba(10, 12, 20, 0.78);
+  color: #c8c3db;
+  font:
+    500 0.66rem/1.5 DM Mono,
+    monospace;
+  white-space: pre-wrap;
+  backdrop-filter: blur(7px);
+}
+.inspector-panel {
+  width: min(390px, calc(100% - 270px));
+}
+#example-nav {
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.sidebar {
+  position: sticky;
+  top: 0;
+  max-height: 100vh;
+}
+@media (max-width: 680px) {
+  .sidebar {
+    position: static;
+    max-height: none;
+  }
+  #example-nav {
+    overflow-y: visible;
+  }
+  .metrics-hud {
+    top: 8px;
+    left: 8px;
+    min-width: 188px;
+    font-size: 0.58rem;
+  }
+  .lab-panel {
+    top: auto;
+    right: 8px;
+    bottom: 62px;
+    max-width: calc(100% - 16px);
+    max-height: 38%;
+  }
+  .lab-toolbar {
+    right: 8px;
+    bottom: 8px;
+    max-width: calc(100% - 16px);
+  }
+}

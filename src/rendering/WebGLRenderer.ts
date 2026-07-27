@@ -1,5 +1,6 @@
 import { Camera } from '../cameras/Camera';
 import { Scene } from '../core/Scene';
+import type { BufferGeometry } from '../geometry/BufferGeometry';
 import { AmbientLight, DirectionalLight, HemisphereLight, PointLight, SpotLight } from '../lights/Light';
 import { StandardMaterial } from '../materials/StandardMaterial';
 import { parseHexColor } from '../math/Color';
@@ -7,6 +8,7 @@ import { Mesh } from '../objects/Mesh';
 import { createProgram, MAX_LIGHTS, PROGRAM_SOURCES, type ProgramState } from './programs';
 import type { Renderer } from './Renderer';
 import { ResourceCache } from './ResourceCache';
+import type { Texture2D } from './Texture2D';
 
 type DirectionalEntry = { color: number[]; direction: number[]; intensity: number };
 type PointEntry = { color: number[]; position: number[]; intensity: number; distance: number };
@@ -301,11 +303,28 @@ export class WebGLRenderer implements Renderer {
         gl.depthMask(true);
       }
 
-      gl.drawArrays(gl.TRIANGLES, 0, buffers.vertexCount);
+      if (mesh.material.wireframe) {
+        // WebGL has no polygon mode. Drawing each triangle as a line loop keeps
+        // BasicMaterial.wireframe useful without duplicating edge geometry.
+        for (let offset = 0; offset < buffers.vertexCount; offset += 3) gl.drawArrays(gl.LINE_LOOP, offset, 3);
+      } else gl.drawArrays(gl.TRIANGLES, 0, buffers.vertexCount);
     }
 
     gl.depthMask(true);
     gl.disable(gl.BLEND);
+  }
+
+  /** GPU cache diagnostics used by profiling tools and the examples browser. */
+  get resourceStats() {
+    return this.resources.stats;
+  }
+
+  releaseGeometry(geometry: BufferGeometry) {
+    this.resources.releaseGeometry(geometry);
+  }
+
+  releaseTexture(texture: Texture2D) {
+    this.resources.releaseTexture(texture);
   }
 
   dispose() {

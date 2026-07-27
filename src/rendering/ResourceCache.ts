@@ -28,6 +28,15 @@ export class ResourceCache {
 
   constructor(private readonly gl: WebGL2RenderingContext) {}
 
+  /** Read-only diagnostics for examples and performance tooling. */
+  get stats() {
+    return {
+      geometries: this.geometries.size,
+      textures: this.textures.size,
+      programs: this.programs.size,
+    };
+  }
+
   /** Uploads the geometry on first use, then returns the cached buffers. */
   geometry(geometry: BufferGeometry): GeometryBuffers {
     const existing = this.geometries.get(geometry);

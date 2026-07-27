@@ -43,7 +43,9 @@ metalness и diffuse `Texture2D` map. `Texture2D` загружает изобр�
 поддерживает `minFilter`/`magFilter`/`wrapS`/`wrapT`/`generateMipmaps`/`flipY`,
 восстанавливает pixel-store после загрузки и даёт понятную ошибку при сбое.
 
-> `wireframe` принимается материалом, но renderer его пока не применяет.
+`wireframe` рисует каждый треугольник как `LINE_LOOP`; `doubleSided` отключает
+face culling, а `transparent` включает alpha blending с отключённой записью
+gлубины.
 
 ## Lights and cameras
 
@@ -78,6 +80,8 @@ non-uniform scale.
 
 Имена uniform-ов заданы явными таблицами в `programs.ts` и сверяются с GLSL
 тестом. `ResourceCache` — единственный владелец buffers, textures и programs;
+`stats` сообщает их количество. `WebGLRenderer.resourceStats`,
+`releaseGeometry()` и `releaseTexture()` доступны диагностическим инструментам.
 `dispose()` освобождает всё созданное, повторный `render()` бросает ошибку.
 Кадр в установившемся режиме не аллоцирует.
 

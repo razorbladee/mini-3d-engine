@@ -30,6 +30,13 @@ describe('ResourceCache', () => {
     expect(gl.__live('buffer')).toHaveLength(6);
   });
 
+  it('reports resource counts for diagnostics', () => {
+    const cache = new ResourceCache(createFakeGL());
+    cache.geometry(new BoxGeometry(1));
+    cache.geometry(new SphereGeometry(1, 8, 4));
+    expect(cache.stats).toEqual({ geometries: 2, textures: 0, programs: 0 });
+  });
+
   it('reports the vertex count alongside the buffers', () => {
     const gl = createFakeGL();
     const geometry = new BoxGeometry(1);

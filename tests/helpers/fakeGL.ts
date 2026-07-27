@@ -44,6 +44,7 @@ const GL_CONSTANTS: Record<string, number> = {
   BLEND: 0x0be2,
   LESS: 0x0201,
   CCW: 0x0901,
+  LINE_LOOP: 0x0002,
   TRIANGLES: 0x0004,
   ARRAY_BUFFER: 0x8892,
   ELEMENT_ARRAY_BUFFER: 0x8893,
