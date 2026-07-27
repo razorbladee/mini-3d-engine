@@ -1,0 +1,1 @@
+{"name":"mini-3d-engine","version":"0.1.0","private":true,"type":"module","scripts":{"dev":"vite","build":"tsc && vite build","test":"vitest"},"devDependencies":{"@types/node":"latest","typescript":"latest","vite":"latest","vitest":"latest"}}
