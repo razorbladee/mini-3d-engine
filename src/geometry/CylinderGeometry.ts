@@ -1,4 +1,31 @@
 import { BufferGeometry } from './BufferGeometry';
+
 export class CylinderGeometry extends BufferGeometry {
-  constructor(radius = 1, height = 2, segments = 24) { const p: number[] = []; const n: number[] = []; const u: number[] = []; if (segments < 3) throw new Error('CylinderGeometry needs at least 3 segments'); for (let i = 0; i < segments; i += 1) { const a0 = i / segments * Math.PI * 2, a1 = (i + 1) / segments * Math.PI * 2; const x0 = Math.cos(a0) * radius, z0 = Math.sin(a0) * radius, x1 = Math.cos(a1) * radius, z1 = Math.sin(a1) * radius; const quad = (y0: number, y1: number) => { const verts = [[x0,y0,z0],[x1,y0,z1],[x1,y1,z1],[x0,y0,z0],[x1,y1,z1],[x0,y1,z0]]; for (const [x,y,z] of verts) { p.push(x,y,z); n.push(x/radius,0,z/radius); u.push((Math.atan2(z,x)/Math.PI/2+.5), (y+height/2)/height); } }; quad(-height/2,height/2); } super(p,n,u); }
+  constructor(radius = 1, height = 2, segments = 24) {
+    if (radius <= 0 || height <= 0) throw new Error('CylinderGeometry dimensions must be positive');
+    if (segments < 3) throw new Error('CylinderGeometry needs at least 3 segments');
+    const positions: number[] = [];
+    const normals: number[] = [];
+    const uvs: number[] = [];
+    const half = height / 2;
+    const push = (position: number[], normal: number[], uv: number[]) => {
+      positions.push(...position); normals.push(...normal); uvs.push(...uv);
+    };
+    for (let i = 0; i < segments; i += 1) {
+      const u0 = i / segments;
+      const u1 = (i + 1) / segments;
+      const a0 = u0 * Math.PI * 2;
+      const a1 = u1 * Math.PI * 2;
+      const c0 = Math.cos(a0), s0 = Math.sin(a0);
+      const c1 = Math.cos(a1), s1 = Math.sin(a1);
+      const side = [
+        [radius * c0, -half, radius * s0], [radius * c1, -half, radius * s1], [radius * c1, half, radius * s1],
+        [radius * c0, -half, radius * s0], [radius * c1, half, radius * s1], [radius * c0, half, radius * s0],
+      ];
+      for (const [x, y, z] of side) push([x, y, z], [x / radius, 0, z / radius], [(Math.atan2(z, x) / (Math.PI * 2) + 1) % 1, (y + half) / height]);
+      for (const [x, y, z] of [[0, -half, 0], [radius * c0, -half, radius * s0], [radius * c1, -half, radius * s1]]) push([x, y, z], [0, -1, 0], [x / radius / 2 + .5, z / radius / 2 + .5]);
+      for (const [x, y, z] of [[0, half, 0], [radius * c1, half, radius * s1], [radius * c0, half, radius * s0]]) push([x, y, z], [0, 1, 0], [x / radius / 2 + .5, z / radius / 2 + .5]);
+    }
+    super(positions, normals, uvs);
+  }
 }
