@@ -40,9 +40,11 @@ Cone, Torus, Capsule — все с корректной CCW-намоткой, б
 
 `BasicMaterial`, `StandardMaterial` и `ShaderMaterial`. StandardMaterial
 поддерживает roughness, metalness и diffuse `Texture2D` map. ShaderMaterial
-принимает пользовательские vertex/fragment GLSL, uniforms и опционально
-получает стандартные lighting/shadow uniforms через `lights: true`. Одинаковые
-shader sources используют один cached GPU program. `Texture2D` загружает изображения,
+принимает пользовательские vertex/fragment GLSL, numeric/vector uniforms и
+несколько `Texture2D` sampler uniforms; дополнительные maps автоматически
+получают свободные texture units. Через `lights: true` материал получает
+стандартные lighting/shadow uniforms. Одинаковые shader sources используют
+один cached GPU program. `Texture2D` загружает изображения,
 поддерживает `minFilter`/`magFilter`/`wrapS`/`wrapT`/`generateMipmaps`/`flipY`,
 восстанавливает pixel-store после загрузки и даёт понятную ошибку при сбое.
 

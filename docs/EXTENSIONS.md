@@ -12,12 +12,18 @@ const fromDom = Texture2D.fromImage(imageElement);
 
 ### Временные textures showcase
 
-Сцена `textured-shader-forest` использует шесть изображений из
+Сцены `textured-shader-forest` и `cinematic-shader-forest` используют до восьми изображений из
 [`mrdoob/three.js`](https://github.com/mrdoob/three.js/tree/3cc8908cad65fe9a75c4fcf29c4f897c593443d5/examples/textures),
 зафиксированных на commit `3cc8908c`: terrain grass (CC BY 3.0, OpenGameArt),
-Minecraft-style grass/dirt, water, cloud map и hardwood. Это временные demo
-assets с сохранением исходных лицензий; позже они будут заменены собственным
-набором. При сетевой ошибке сцена сохраняет цветной shader fallback.
+Minecraft-style grass/dirt, water, cloud map, hardwood, Perlin detail и water
+normal map. Это временные demo assets с сохранением исходных лицензий; позже
+они будут заменены собственным набором. При сетевой ошибке сцена сохраняет
+цветной shader fallback.
+
+Cinematic-вариант использует triplanar mapping земли и скал, два scrolling
+normal-map слоя воды, Fresnel/specular, detail noise, foliage transmission,
+cloud rim lighting, distance fog и filmic tone mapping. Это также проверяет
+поддержку нескольких `Texture2D` sampler uniforms в `ShaderMaterial`.
 
 ## GLTFLoader
 

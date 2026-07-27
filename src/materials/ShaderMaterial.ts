@@ -1,7 +1,7 @@
 import { Texture2D } from '../rendering/Texture2D';
 import { BasicMaterial } from './BasicMaterial';
 
-export type ShaderUniformValue = number | Float32Array;
+export type ShaderUniformValue = number | Float32Array | Texture2D;
 
 /**
  * User-defined GLSL material using the engine's standard mesh attributes and

@@ -14,6 +14,7 @@ export type ExampleId =
   | 'low-poly-forest'
   | 'shader-forest'
   | 'textured-shader-forest'
+  | 'cinematic-shader-forest'
   | 'primitives'
   | 'advanced-primitives'
   | 'materials'
@@ -70,6 +71,13 @@ export const examples: ExampleMeta[] = [
     title: 'Textured shader forest',
     summary: 'The same world with custom GLSL plus web textures on every object class.',
     hint: 'Wait for 6 maps, then compare',
+  },
+  {
+    id: 'cinematic-shader-forest',
+    group: 'Featured',
+    title: 'Cinematic shader forest',
+    summary: 'Enhanced terrain, water, foliage, clouds and atmosphere with layered GLSL and detail maps.',
+    hint: 'Wait for 8 maps, then explore',
   },
   {
     id: 'primitives',

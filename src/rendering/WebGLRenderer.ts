@@ -12,7 +12,7 @@ import { Mesh } from '../objects/Mesh';
 import { createProgram, MAX_LIGHTS, PROGRAM_SOURCES, type ProgramState } from './programs';
 import type { Renderer } from './Renderer';
 import { ResourceCache } from './ResourceCache';
-import type { Texture2D } from './Texture2D';
+import { Texture2D } from './Texture2D';
 
 type DirectionalEntry = { color: number[]; direction: number[]; intensity: number; source: DirectionalLight };
 type PointEntry = { color: number[]; position: number[]; intensity: number; distance: number };
@@ -144,11 +144,17 @@ export class WebGLRenderer implements Renderer {
     return entry;
   }
 
-  private uploadCustomUniform(location: WebGLUniformLocation | null, value: ShaderUniformValue) {
+  private uploadCustomUniform(location: WebGLUniformLocation | null, value: ShaderUniformValue, textureUnit: number) {
     const gl = this.gl;
     if (typeof value === 'number') {
       gl.uniform1f(location, value);
-      return;
+      return false;
+    }
+    if (value instanceof Texture2D) {
+      gl.activeTexture(gl.TEXTURE0 + textureUnit);
+      gl.bindTexture(gl.TEXTURE_2D, this.resources.texture(value));
+      gl.uniform1i(location, textureUnit);
+      return true;
     }
     if (value.length === 2) gl.uniform2fv(location, value);
     else if (value.length === 3) gl.uniform3fv(location, value);
@@ -156,6 +162,7 @@ export class WebGLRenderer implements Renderer {
     else if (value.length === 9) gl.uniformMatrix3fv(location, false, value);
     else if (value.length === 16) gl.uniformMatrix4fv(location, false, value);
     else throw new Error(`Unsupported shader uniform length: ${value.length}`);
+    return false;
   }
 
   private collectLights(scene: Scene) {
@@ -431,9 +438,12 @@ export class WebGLRenderer implements Renderer {
         gl.uniform1f(state.litUniforms!.roughness, material.roughness);
         gl.uniform1f(state.litUniforms!.metalness, material.metalness);
       } else if (shaderMaterial?.lights) this.uploadLights(state, camera, mesh);
-      if (custom && shaderMaterial)
+      if (custom && shaderMaterial) {
+        let textureUnit = 2; // Unit 0 is the base map; unit 1 is the shadow map.
         for (const name in shaderMaterial.uniforms)
-          this.uploadCustomUniform(custom.uniforms.get(name) ?? null, shaderMaterial.uniforms[name]);
+          if (this.uploadCustomUniform(custom.uniforms.get(name) ?? null, shaderMaterial.uniforms[name], textureUnit))
+            textureUnit += 1;
+      }
 
       const buffers = this.resources.geometry(mesh.geometry);
       gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);

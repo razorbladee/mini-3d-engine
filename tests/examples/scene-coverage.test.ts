@@ -68,7 +68,9 @@ describe('featured low-poly forest', () => {
   it('builds the shader comparison from the identical scene function', () => {
     expect(buildBody).toContain("if (id === 'shader-forest') return lowPolyForest('shader')");
     expect(buildBody).toContain("if (id === 'textured-shader-forest') return lowPolyForest('textured')");
+    expect(buildBody).toContain("if (id === 'cinematic-shader-forest') return lowPolyForest('cinematic')");
     expect(source).toContain('const forestVertexShader');
+    expect(source).toContain('const cinematicForestFragmentShader');
     expect(source).toContain('const forestFragmentShader');
     expect(forest).toContain('new ShaderMaterial');
   });
@@ -78,10 +80,12 @@ describe('featured low-poly forest', () => {
     expect(forest).not.toContain('models.');
   });
 
-  it('loads six pinned web textures only in textured mode', () => {
+  it('loads pinned web textures only in textured modes', () => {
     expect(forest).toContain('if (texturedMode)');
     expect(forest).toContain('Texture2D.load');
     expect(forest).toContain('3cc8908cad65fe9a75c4fcf29c4f897c593443d5');
-    expect(forest).toContain('shader + web textures');
+    expect(forest).toContain('perlin-512.png');
+    expect(forest).toContain('waternormals.jpg');
+    expect(forest).toContain('cinematic GLSL + textures');
   });
 });

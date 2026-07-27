@@ -44,7 +44,9 @@ npm run verify   # format + lint + typecheck + test + build
 `ShaderMaterial`: toon lighting, процедурные оттенки, ветер, вода и PCF-тени
 реализованы пользовательским GLSL. Третий вариант объединяет эти shaders с
 шестью временными web textures для земли, листвы, воды, облаков, камня и
-дерева. Scene browser также покрывает геометрию, материалы,
+дерева. Четвёртый cinematic-вариант добавляет triplanar mapping, detail/normal
+maps, улучшенный ветер, Fresnel-воду, атмосферу и filmic tone mapping. Scene
+browser также покрывает геометрию, материалы,
 transforms, procedural/image textures, lighting, cameras, bounds,
 input, frustum culling, particles, physics, animation, assets, GPU resources,
 scene inspection, renderer/audio boundaries, post-processing и glTF/GLB.

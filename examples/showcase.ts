@@ -750,6 +750,186 @@ void main() {
   outColor = vec4(clamp(base * lighting, 0.0, 1.0), alpha);
 }`;
 
+const cinematicForestVertexShader = `#version 300 es
+in vec3 position;
+in vec3 normal;
+in vec2 uv;
+uniform mat4 uModel;
+uniform mat4 uView;
+uniform mat4 uProjection;
+uniform mat3 uNormalMatrix;
+uniform mat4 uShadowMatrix;
+uniform float uTime;
+uniform float uWind;
+uniform float uShaderKind;
+out vec3 vWorldPosition;
+out vec3 vWorldNormal;
+out vec2 vUv;
+out vec4 vShadowPosition;
+void main() {
+  vec3 local = position;
+  float phase = uModel[3].x * 0.73 + uModel[3].z * 0.41;
+  if (uWind > 0.0) {
+    float leverage = max(local.y + 0.55, 0.0);
+    float breeze = sin(uTime * 1.35 + phase) * 0.65 + sin(uTime * 2.7 + phase * 1.9) * 0.35;
+    local.x += breeze * uWind * leverage;
+    local.z += cos(uTime * 1.1 + phase * 0.8) * uWind * leverage * 0.35;
+  }
+  if (uShaderKind > 1.5 && uShaderKind < 2.5) {
+    float waveA = sin(local.x * 4.2 + uTime * 1.5);
+    float waveB = cos(local.z * 3.7 - uTime * 1.15);
+    local.y += (waveA + waveB) * 0.045;
+  }
+  vec4 world = uModel * vec4(local, 1.0);
+  vWorldPosition = world.xyz;
+  vWorldNormal = normalize(uNormalMatrix * normal);
+  vUv = uv;
+  vShadowPosition = uShadowMatrix * world;
+  gl_Position = uProjection * uView * world;
+}`;
+
+const cinematicForestFragmentShader = `#version 300 es
+precision highp float;
+#define MAX_LIGHTS 4
+uniform vec4 uColor;
+uniform sampler2D uMap;
+uniform int uHasMap;
+uniform sampler2D uDetailMap;
+uniform sampler2D uNormalMap;
+uniform float uDetailReady;
+uniform float uNormalReady;
+uniform vec3 uCameraPosition;
+uniform vec3 uAmbientColor;
+uniform int uDirectionalCount;
+uniform vec3 uDirectionalColor[MAX_LIGHTS];
+uniform vec3 uDirectionalDirection[MAX_LIGHTS];
+uniform float uDirectionalIntensity[MAX_LIGHTS];
+uniform sampler2D uShadowMap;
+uniform int uShadowEnabled;
+uniform float uShadowBias;
+uniform float uShadowStrength;
+uniform float uTime;
+uniform float uShaderKind;
+in vec3 vWorldPosition;
+in vec3 vWorldNormal;
+in vec2 vUv;
+in vec4 vShadowPosition;
+out vec4 outColor;
+
+float hash(vec2 value) {
+  return fract(sin(dot(value, vec2(127.1, 311.7))) * 43758.5453);
+}
+
+vec4 triplanarBase(vec3 position, vec3 normal, float scale) {
+  vec3 blend = pow(abs(normal), vec3(4.0));
+  blend /= max(blend.x + blend.y + blend.z, 0.0001);
+  vec4 xMap = texture(uMap, position.yz * scale);
+  vec4 yMap = texture(uMap, position.xz * scale);
+  vec4 zMap = texture(uMap, position.xy * scale);
+  return xMap * blend.x + yMap * blend.y + zMap * blend.z;
+}
+
+float softShadow() {
+  if (uShadowEnabled == 0) return 1.0;
+  vec3 projected = vShadowPosition.xyz / max(vShadowPosition.w, 0.0001);
+  projected = projected * 0.5 + 0.5;
+  if (projected.x <= 0.0 || projected.x >= 1.0 || projected.y <= 0.0 || projected.y >= 1.0 || projected.z <= 0.0 || projected.z >= 1.0) return 1.0;
+  vec2 texel = 1.0 / vec2(textureSize(uShadowMap, 0));
+  float result = 0.0;
+  for (int x = -1; x <= 1; x++) {
+    for (int y = -1; y <= 1; y++) {
+      float closest = texture(uShadowMap, projected.xy + vec2(float(x), float(y)) * texel).r;
+      result += projected.z - uShadowBias <= closest ? 1.0 : 0.0;
+    }
+  }
+  return mix(1.0, result / 9.0, uShadowStrength);
+}
+
+void main() {
+  vec3 geometricNormal = normalize(vWorldNormal);
+  bool terrain = uShaderKind < 0.5;
+  bool foliage = uShaderKind > 0.5 && uShaderKind < 1.5;
+  bool water = uShaderKind > 1.5 && uShaderKind < 2.5;
+  bool cloud = uShaderKind > 2.5 && uShaderKind < 3.5;
+  bool rock = uShaderKind > 3.5 && uShaderKind < 4.5;
+  bool wood = uShaderKind > 4.5;
+
+  vec4 texel = vec4(1.0);
+  if (uHasMap == 1) {
+    if (terrain) texel = triplanarBase(vWorldPosition, geometricNormal, 0.18);
+    else if (rock) texel = triplanarBase(vWorldPosition, geometricNormal, 0.42);
+    else {
+      vec2 uv = vUv;
+      if (water) uv = vWorldPosition.xz * 0.18 + vec2(uTime * 0.018, -uTime * 0.01);
+      else if (wood) uv *= vec2(2.8, 1.6);
+      texel = texture(uMap, uv);
+    }
+  }
+
+  vec3 normal = geometricNormal;
+  if (water) {
+    vec2 flowA = vWorldPosition.xz * 0.22 + vec2(uTime * 0.025, uTime * 0.012);
+    vec2 flowB = vWorldPosition.zx * 0.31 + vec2(-uTime * 0.018, uTime * 0.02);
+    vec3 waves = uNormalReady > 0.5
+      ? texture(uNormalMap, flowA).xyz + texture(uNormalMap, flowB).xyz - 1.0
+      : vec3(sin(flowA.x * 8.0), 1.0, cos(flowB.y * 7.0));
+    normal = normalize(vec3(waves.x * 0.42, 1.0, waves.z * 0.42));
+  }
+
+  vec3 base = uColor.rgb * texel.rgb;
+  float alpha = uColor.a * texel.a;
+  float detail = uDetailReady > 0.5 ? texture(uDetailMap, vWorldPosition.xz * 0.32).r : hash(vWorldPosition.xz);
+  if (terrain) {
+    float slope = 1.0 - max(geometricNormal.y, 0.0);
+    base *= mix(vec3(0.82 + detail * 0.28), vec3(0.62, 0.58, 0.48), slope * 0.55);
+  } else if (foliage) {
+    base *= 0.8 + detail * 0.35;
+  } else if (rock) {
+    base *= 0.72 + detail * 0.42;
+  } else if (wood) {
+    float rings = sin((vWorldPosition.y + length(vWorldPosition.xz) * 0.3) * 18.0) * 0.5 + 0.5;
+    base *= 0.88 + rings * 0.14;
+  }
+
+  vec3 lightDirection = uDirectionalCount > 0 ? normalize(-uDirectionalDirection[0]) : normalize(vec3(0.5, 1.0, 0.35));
+  vec3 lightColor = uDirectionalCount > 0 ? uDirectionalColor[0] * uDirectionalIntensity[0] : vec3(1.0);
+  vec3 viewDirection = normalize(uCameraPosition - vWorldPosition);
+  float diffuse = max(dot(normal, lightDirection), 0.0);
+  float visibility = cloud ? 1.0 : softShadow();
+  float halfLambert = diffuse * 0.72 + 0.28;
+  vec3 lighting = max(uAmbientColor, vec3(0.12)) + lightColor * halfLambert * visibility;
+
+  if (foliage) {
+    float transmission = pow(max(dot(-normal, lightDirection), 0.0), 2.0);
+    lighting += vec3(0.2, 0.38, 0.12) * transmission;
+  }
+  if (water) {
+    float fresnel = pow(1.0 - max(dot(normal, viewDirection), 0.0), 3.0);
+    vec3 halfVector = normalize(lightDirection + viewDirection);
+    float sparkle = pow(max(dot(normal, halfVector), 0.0), 72.0) * visibility;
+    vec3 deepWater = vec3(0.035, 0.22, 0.32);
+    vec3 reflectedSky = vec3(0.46, 0.72, 0.88);
+    base = mix(deepWater, reflectedSky, fresnel * 0.82 + detail * 0.08) + sparkle * vec3(1.0, 0.9, 0.68);
+    lighting = vec3(1.0);
+    alpha = mix(0.78, 0.94, fresnel);
+  }
+  if (cloud) {
+    float rim = pow(1.0 - max(dot(geometricNormal, viewDirection), 0.0), 2.0);
+    float billow = 0.82 + detail * 0.2;
+    base = mix(vec3(0.72, 0.78, 0.84), vec3(1.0, 0.98, 0.9), max(geometricNormal.y, 0.0)) * billow;
+    lighting = vec3(1.0) + rim * vec3(0.18, 0.22, 0.3);
+    alpha *= 0.78 + detail * 0.2;
+  }
+
+  vec3 color = base * lighting;
+  float distanceToCamera = length(uCameraPosition - vWorldPosition);
+  float fog = smoothstep(18.0, 42.0, distanceToCamera);
+  color = mix(color, vec3(0.48, 0.64, 0.76), fog * 0.62);
+  color = color / (color + vec3(1.0));
+  color = pow(max(color, vec3(0.0)), vec3(1.0 / 2.2));
+  outColor = vec4(clamp(color, 0.0, 1.0), alpha);
+}`;
+
 type ForestMaterialOptions = {
   color: string;
   roughness?: number;
@@ -759,9 +939,10 @@ type ForestMaterialOptions = {
   doubleSided?: boolean;
 };
 
-function lowPolyForest(mode: 'standard' | 'shader' | 'textured' = 'standard'): Runtime {
+function lowPolyForest(mode: 'standard' | 'shader' | 'textured' | 'cinematic' = 'standard'): Runtime {
   const shaderMode = mode !== 'standard';
-  const texturedMode = mode === 'textured';
+  const enhancedMode = mode === 'cinematic';
+  const texturedMode = mode === 'textured' || enhancedMode;
   const r = three();
   const engine = r.engine!;
   const scene = engine.scene;
@@ -772,10 +953,15 @@ function lowPolyForest(mode: 'standard' | 'shader' | 'textured' = 'standard'): R
     const material = shaderMode
       ? new ShaderMaterial({
           ...materialOptions,
-          vertexShader: forestVertexShader,
-          fragmentShader: forestFragmentShader,
+          vertexShader: enhancedMode ? cinematicForestVertexShader : forestVertexShader,
+          fragmentShader: enhancedMode ? cinematicForestFragmentShader : forestFragmentShader,
           lights: true,
-          uniforms: { uTime: 0, uWind: wind, uShaderKind: shaderKind },
+          uniforms: {
+            uTime: 0,
+            uWind: wind,
+            uShaderKind: shaderKind,
+            ...(enhancedMode ? { uDetailReady: 0, uNormalReady: 0 } : {}),
+          },
         })
       : unlit
         ? new BasicMaterial(materialOptions)
@@ -786,7 +972,9 @@ function lowPolyForest(mode: 'standard' | 'shader' | 'textured' = 'standard'): R
     materialsByKind.set(shaderKind, group);
     return material;
   };
-  (engine.renderer as WebGLRenderer).setClearColor(shaderMode ? '#735fa3' : '#8fc4dc');
+  (engine.renderer as WebGLRenderer).setClearColor(
+    enhancedMode ? '#6f94b5' : texturedMode ? '#82b5cb' : shaderMode ? '#735fa3' : '#8fc4dc',
+  );
   r.controls!.focus(new Vector3(0, 1.1, -4), 19);
 
   const ambient = new AmbientLight('#dff2df', 0.16);
@@ -1059,6 +1247,11 @@ function lowPolyForest(mode: 'standard' | 'shader' | 'textured' = 'standard'): R
 
   let disposed = false;
   let loadedTextures = 0;
+  const totalTextures = enhancedMode ? 8 : 6;
+  const reportTextureProgress = () =>
+    status(
+      `${enhancedMode ? 'cinematic shaders' : 'shader + textures'} · ${loadedTextures}/${totalTextures} maps loaded`,
+    );
   if (texturedMode) {
     const textureSources = new Map<number, string>([
       [
@@ -1086,18 +1279,50 @@ function lowPolyForest(mode: 'standard' | 'shader' | 'textured' = 'standard'): R
         'https://raw.githubusercontent.com/mrdoob/three.js/3cc8908cad65fe9a75c4fcf29c4f897c593443d5/examples/textures/hardwood2_diffuse.jpg',
       ],
     ]);
-    status('loading 6 web textures…');
+    status(`loading ${totalTextures} web textures…`);
     for (const [kind, url] of textureSources) {
       void Texture2D.load(url, { wrapS: 'repeat', wrapT: 'repeat', generateMipmaps: true })
         .then((loaded) => {
           if (disposed) return;
           for (const material of materialsByKind.get(kind) ?? []) material.map = loaded;
           loadedTextures += 1;
-          status(`shader + textures · ${loadedTextures}/${textureSources.size} maps loaded`);
+          reportTextureProgress();
         })
         .catch(() => {
           if (!disposed) status(`texture ${kind} unavailable · color fallback active`);
         });
+    }
+    if (enhancedMode) {
+      const loadAuxiliary = (url: string, apply: (texture: Texture2D) => void) =>
+        Texture2D.load(url, { wrapS: 'repeat', wrapT: 'repeat', generateMipmaps: true })
+          .then((loaded) => {
+            if (disposed) return;
+            apply(loaded);
+            loadedTextures += 1;
+            reportTextureProgress();
+          })
+          .catch(() => {
+            if (!disposed) status('detail texture unavailable · procedural fallback active');
+          });
+      void loadAuxiliary(
+        'https://raw.githubusercontent.com/mrdoob/three.js/3cc8908cad65fe9a75c4fcf29c4f897c593443d5/examples/textures/perlin-512.png',
+        (detail) => {
+          for (const material of shaderMaterials) {
+            material.uniforms.uDetailMap = detail;
+            material.uniforms.uDetailReady = 1;
+          }
+        },
+      );
+      void loadAuxiliary(
+        'https://raw.githubusercontent.com/mrdoob/three.js/3cc8908cad65fe9a75c4fcf29c4f897c593443d5/examples/textures/waternormals.jpg',
+        (normalMap) => {
+          for (const material of materialsByKind.get(2) ?? [])
+            if (material instanceof ShaderMaterial) {
+              material.uniforms.uNormalMap = normalMap;
+              material.uniforms.uNormalReady = 1;
+            }
+        },
+      );
     }
   }
 
@@ -1119,7 +1344,7 @@ function lowPolyForest(mode: 'standard' | 'shader' | 'textured' = 'standard'): R
     });
   };
   r.stats = () =>
-    `${texturedMode ? `shader + web textures ${loadedTextures}/6` : shaderMode ? `custom GLSL ${shaderMaterials.length} materials` : 'standard materials'} · shadows ${sun.castShadow ? '2048² PCF' : 'off'} · trees ${trees.length} · shrubs ${shrubs.length} · logs ${logs.length} · stumps ${stumps.length} · cliffs ${cliffs.length} · grass ${grasses.length} · clouds ${clouds.length}`;
+    `${enhancedMode ? `cinematic GLSL + textures ${loadedTextures}/${totalTextures}` : texturedMode ? `shader + web textures ${loadedTextures}/${totalTextures}` : shaderMode ? `custom GLSL ${shaderMaterials.length} materials` : 'standard materials'} · shadows ${sun.castShadow ? '2048² PCF' : 'off'} · trees ${trees.length} · shrubs ${shrubs.length} · logs ${logs.length} · stumps ${stumps.length} · cliffs ${cliffs.length} · grass ${grasses.length} · clouds ${clouds.length}`;
   r.dispose = () => {
     disposed = true;
     controls.remove();
@@ -1591,6 +1816,7 @@ function build(id: ExampleId): Runtime {
   if (id === 'low-poly-forest') return lowPolyForest();
   if (id === 'shader-forest') return lowPolyForest('shader');
   if (id === 'textured-shader-forest') return lowPolyForest('textured');
+  if (id === 'cinematic-shader-forest') return lowPolyForest('cinematic');
   if (id === 'primitives') return primitives();
   if (id === 'advanced-primitives') return advanced();
   if (id === 'materials') return materials();

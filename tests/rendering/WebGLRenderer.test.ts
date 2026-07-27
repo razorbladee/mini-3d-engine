@@ -10,6 +10,7 @@ import {
   Scene,
   ShaderMaterial,
   StandardMaterial,
+  Texture2D,
   WebGLRenderer,
 } from '../../src';
 import { basicFragmentSource, litFragmentSource, vertexSource } from '../../src/rendering/shaders';
@@ -164,17 +165,20 @@ describe('WebGLRenderer draw pass', () => {
 
   it('compiles and reuses custom shader programs and uploads uniforms', () => {
     const { gl, renderer, scene, camera } = setupRenderer();
+    const detail = Texture2D.fromImage({ width: 2, height: 2 } as HTMLImageElement);
     const material = new ShaderMaterial({
       vertexShader:
         '#version 300 es\nin vec3 position; uniform mat4 uModel; uniform mat4 uView; uniform mat4 uProjection; void main(){ gl_Position=uProjection*uView*uModel*vec4(position,1.0); }',
       fragmentShader:
         '#version 300 es\nprecision highp float; uniform vec4 uColor; uniform float uTime; out vec4 outColor; void main(){ outColor=uColor+vec4(uTime*0.0); }',
-      uniforms: { uTime: 1.5 },
+      uniforms: { uTime: 1.5, uDetailMap: detail },
     });
     scene.add(new Mesh(new BoxGeometry(1), material), new Mesh(new BoxGeometry(1), material));
     renderer.render(scene, camera);
     expect(gl.__live('program')).toHaveLength(4);
+    expect(gl.__live('texture')).toHaveLength(1);
     expect(gl.__uniformWrites.findLast((write) => write.name === 'uTime')?.value).toBe(1.5);
+    expect(gl.__uniformWrites.findLast((write) => write.name === 'uDetailMap')?.value).toBe(2);
   });
 
   it('renders a depth pass and enables shadow sampling for a shadow-casting sun', () => {
