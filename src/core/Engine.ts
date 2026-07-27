@@ -5,6 +5,10 @@ import { WebGLRenderer } from '../rendering/WebGLRenderer';
 import { Scene } from './Scene';
 
 export type FrameInfo = { deltaTime: number; elapsed: number };
+
+/** Anything needing per-frame edge cleanup, such as InputMap. */
+export type FrameConsumer = { endFrame(): unknown };
+
 export type EngineOptions = {
   canvas: HTMLCanvasElement;
   camera?: Camera;
@@ -28,7 +32,23 @@ export class Engine {
   private last = 0;
   private startedAt = 0;
   private running = false;
+  private readonly frameConsumers = new Set<FrameConsumer>();
   private readonly onResize = () => this.resize();
+
+  /**
+   * Registers something whose per-frame edges must be cleared after each
+   * update, such as an InputMap. Without this nothing called endFrame() and
+   * wasPressed() stayed true forever (AUDIT-TZ P1-9).
+   */
+  track<T extends FrameConsumer>(consumer: T) {
+    this.frameConsumers.add(consumer);
+    return consumer;
+  }
+
+  untrack(consumer: FrameConsumer) {
+    this.frameConsumers.delete(consumer);
+    return this;
+  }
 
   constructor(options: EngineOptions) {
     const createRenderer = options.createRenderer ?? ((canvas: HTMLCanvasElement) => new WebGLRenderer(canvas));
@@ -61,6 +81,7 @@ export class Engine {
       this.last = now;
       update?.({ deltaTime, elapsed: (now - this.startedAt) / 1000 });
       this.renderer.render(this.scene, this.camera);
+      for (const consumer of this.frameConsumers) consumer.endFrame();
       this.frame = requestAnimationFrame(tick);
     };
     this.frame = requestAnimationFrame(tick);

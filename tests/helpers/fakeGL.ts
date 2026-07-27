@@ -33,6 +33,9 @@ export type FakeGL = WebGL2RenderingContext & {
   __declaredUniforms: Set<string> | null;
   __live(kind?: string): GLResource[];
   __shaderSources: string[];
+  __texParams: { name: number; value: number }[];
+  __pixelStore: { name: number; value: number }[];
+  __mipmapCount: number;
 };
 
 const GL_CONSTANTS: Record<string, number> = {
@@ -55,7 +58,12 @@ const GL_CONSTANTS: Record<string, number> = {
   TEXTURE_MIN_FILTER: 0x2801,
   TEXTURE_MAG_FILTER: 0x2800,
   CLAMP_TO_EDGE: 0x812f,
+  REPEAT: 0x2901,
+  MIRRORED_REPEAT: 0x8370,
   LINEAR: 0x2601,
+  NEAREST: 0x2600,
+  NEAREST_MIPMAP_NEAREST: 0x2700,
+  LINEAR_MIPMAP_LINEAR: 0x2703,
   UNPACK_FLIP_Y_WEBGL: 0x9240,
   COLOR_BUFFER_BIT: 0x4000,
   DEPTH_BUFFER_BIT: 0x0100,
@@ -92,6 +100,9 @@ export function createFakeGL(options: { declaredUniforms?: string[] } = {}): Fak
     __draws: [] as DrawRecord[],
     __uniformWrites: [] as { name: string; value: unknown }[],
     __shaderSources: [] as string[],
+    __texParams: [] as { name: number; value: number }[],
+    __pixelStore: [] as { name: number; value: number }[],
+    __mipmapCount: 0,
     __declaredUniforms: options.declaredUniforms ? new Set(options.declaredUniforms) : null,
     __live(kind?: string) {
       return resources.filter((r) => !r.deleted && (kind === undefined || r.kind === kind));
@@ -106,10 +117,16 @@ export function createFakeGL(options: { declaredUniforms?: string[] } = {}): Fak
     deleteTexture: destroy,
     bindTexture: () => {},
     activeTexture: () => {},
-    texParameteri: () => {},
+    texParameteri: (_target: number, name: number, value: number) => {
+      (gl as unknown as FakeGL).__texParams.push({ name, value });
+    },
     texImage2D: () => {},
-    generateMipmap: () => {},
-    pixelStorei: () => {},
+    generateMipmap: () => {
+      (gl as unknown as FakeGL).__mipmapCount += 1;
+    },
+    pixelStorei: (name: number, value: number) => {
+      (gl as unknown as FakeGL).__pixelStore.push({ name, value });
+    },
 
     createShader: () => create('shader'),
     deleteShader: destroy,

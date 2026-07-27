@@ -66,7 +66,9 @@ describe('AssetManager', () => {
     expect(events.at(-1)).toBe(1);
   });
 
-  it('passes the caller abort signal to the loader', async () => {
+  it('passes a live signal to the loader', async () => {
+    // The loader receives the entry's shared signal rather than one caller's:
+    // a single subscriber cancelling must not strand the others (P2-8).
     const manager = new AssetManager();
     const controller = new AbortController();
     let received: AbortSignal | undefined;
@@ -78,7 +80,51 @@ describe('AssetManager', () => {
       },
       { signal: controller.signal },
     );
-    expect(received).toBe(controller.signal);
+    expect(received).toBeInstanceOf(AbortSignal);
+    expect(received!.aborted).toBe(false);
+  });
+
+  it('aborts the shared load only when every subscriber withdraws', async () => {
+    const manager = new AssetManager();
+    const first = new AbortController();
+    const second = new AbortController();
+    let signal: AbortSignal | undefined;
+    const loader = async (_url: string, incoming: AbortSignal) => {
+      signal = incoming;
+      return new Promise<number>((resolve) => setTimeout(() => resolve(1), 5));
+    };
+
+    const a = manager.load('x', loader, { signal: first.signal });
+    manager.load('x', loader, { signal: second.signal });
+
+    first.abort();
+    expect(signal!.aborted).toBe(false);
+    expect(manager.has('x')).toBe(true);
+
+    second.abort();
+    expect(signal!.aborted).toBe(true);
+    expect(manager.has('x')).toBe(false);
+    await expect(a).resolves.toBe(1);
+  });
+
+  it('aborts in-flight loads when cleared', async () => {
+    const manager = new AssetManager();
+    let signal: AbortSignal | undefined;
+    manager.load('x', async (_url, incoming) => {
+      signal = incoming;
+      return new Promise<number>((resolve) => setTimeout(() => resolve(1), 5));
+    });
+    manager.clear('x');
+    expect(signal!.aborted).toBe(true);
+  });
+
+  it('tracks its size', async () => {
+    const manager = new AssetManager();
+    await manager.load('a', async () => 1);
+    await manager.load('b', async () => 2);
+    expect(manager.size).toBe(2);
+    manager.clear();
+    expect(manager.size).toBe(0);
   });
 
   it('supplies a signal even when the caller omits one', async () => {

@@ -65,3 +65,60 @@ describe('Raycaster', () => {
     expect(ray.direction.length()).toBeCloseTo(1, 6);
   });
 });
+
+describe('Raycaster narrow phase', () => {
+  // AUDIT-TZ P2-7: the old implementation reported bounding-sphere hits as real
+  // intersections, so a ray through the empty corner of a cube's sphere "hit".
+  it('misses the corner gap between the cube and its bounding sphere', () => {
+    const cube = mesh();
+    cube.position.z = -5;
+    // A unit cube spans +-0.5 but its bounding sphere has radius ~0.866, so
+    // (0.6, 0.4) lies inside the sphere yet outside the box.
+    const ray = new Raycaster().set(new Vector3(0.6, 0.4, 0), new Vector3(0, 0, -1));
+    expect(ray.intersectObjects([cube], { boundsOnly: true })).toHaveLength(1);
+    expect(ray.intersectObjects([cube])).toHaveLength(0);
+  });
+
+  it('reports a point on the surface, not inside the sphere', () => {
+    const cube = mesh();
+    cube.position.z = -5;
+    const [hit] = new Raycaster().intersectObjects([cube]);
+    // Front face of a unit cube centred at z = -5.
+    expect(hit.point.z).toBeCloseTo(-4.5, 5);
+    expect(hit.distance).toBeCloseTo(4.5, 5);
+  });
+
+  it('returns the outward normal of the hit face', () => {
+    const cube = mesh();
+    cube.position.z = -5;
+    const [hit] = new Raycaster().intersectObjects([cube]);
+    expect(hit.normal.z).toBeCloseTo(1, 5);
+  });
+
+  it('identifies which triangle was hit', () => {
+    const cube = mesh();
+    cube.position.z = -5;
+    const [hit] = new Raycaster().intersectObjects([cube]);
+    expect(Number.isInteger(hit.triangleIndex)).toBe(true);
+    expect(hit.triangleIndex).toBeGreaterThanOrEqual(0);
+  });
+
+  it('respects the object transform when intersecting', () => {
+    const cube = mesh();
+    cube.position.set(0, 0, -5);
+    cube.scale.set(4, 4, 4);
+    const ray = new Raycaster().set(new Vector3(1.5, 0, 0), new Vector3(0, 0, -1));
+    // Outside the unit cube, inside the scaled one.
+    expect(ray.intersectObjects([cube])).toHaveLength(1);
+  });
+
+  it('returns the nearest surface when two objects overlap the ray', () => {
+    const near = mesh();
+    const far = mesh();
+    near.position.z = -3;
+    far.position.z = -7;
+    const hits = new Raycaster().intersectObjects([far, near]);
+    expect(hits[0].object).toBe(near);
+    expect(hits[0].point.z).toBeCloseTo(-2.5, 5);
+  });
+});
