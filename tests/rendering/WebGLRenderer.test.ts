@@ -8,6 +8,7 @@ import {
   Mesh,
   PerspectiveCamera,
   Scene,
+  ShaderMaterial,
   StandardMaterial,
   WebGLRenderer,
 } from '../../src';
@@ -159,6 +160,21 @@ describe('WebGLRenderer draw pass', () => {
     expect(gl.__clearColor?.[1]).toBeCloseTo(0xb8 / 255, 6);
     expect(gl.__clearColor?.[2]).toBeCloseTo(0xd8 / 255, 6);
     expect(gl.__clearColor?.[3]).toBe(1);
+  });
+
+  it('compiles and reuses custom shader programs and uploads uniforms', () => {
+    const { gl, renderer, scene, camera } = setupRenderer();
+    const material = new ShaderMaterial({
+      vertexShader:
+        '#version 300 es\nin vec3 position; uniform mat4 uModel; uniform mat4 uView; uniform mat4 uProjection; void main(){ gl_Position=uProjection*uView*uModel*vec4(position,1.0); }',
+      fragmentShader:
+        '#version 300 es\nprecision highp float; uniform vec4 uColor; uniform float uTime; out vec4 outColor; void main(){ outColor=uColor+vec4(uTime*0.0); }',
+      uniforms: { uTime: 1.5 },
+    });
+    scene.add(new Mesh(new BoxGeometry(1), material), new Mesh(new BoxGeometry(1), material));
+    renderer.render(scene, camera);
+    expect(gl.__live('program')).toHaveLength(4);
+    expect(gl.__uniformWrites.findLast((write) => write.name === 'uTime')?.value).toBe(1.5);
   });
 
   it('renders a depth pass and enables shadow sampling for a shadow-casting sun', () => {

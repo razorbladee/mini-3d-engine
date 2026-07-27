@@ -40,8 +40,9 @@ npm run verify   # format + lint + typecheck + test + build
 Главная страница примеров: `index.html`. Первой открывается полностью
 процедурная low-poly сцена леса с рельефом, прудом, деревьями, кустарниками,
 брёвнами, пнями, скальной группой, травой, облаками и мягкими направленными
-тенями — без внешних моделей. Scene browser также покрывает
-геометрию, материалы,
+тенями — без внешних моделей. Рядом находится идентичная по составу сцена на
+`ShaderMaterial`: toon lighting, процедурные оттенки, ветер, вода и PCF-тени
+реализованы пользовательским GLSL. Scene browser также покрывает геометрию, материалы,
 transforms, procedural/image textures, lighting, cameras, bounds,
 input, frustum culling, particles, physics, animation, assets, GPU resources,
 scene inspection, renderer/audio boundaries, post-processing и glTF/GLB.

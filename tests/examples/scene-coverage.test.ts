@@ -65,6 +65,13 @@ describe('featured low-poly forest', () => {
     expect(forest).toContain("name = 'Low-poly pond'");
   });
 
+  it('builds the shader comparison from the identical scene function', () => {
+    expect(buildBody).toContain("if (id === 'shader-forest') return lowPolyForest(true)");
+    expect(source).toContain('const forestVertexShader');
+    expect(source).toContain('const forestFragmentShader');
+    expect(forest).toContain('new ShaderMaterial');
+  });
+
   it('does not load external models or textures', () => {
     expect(forest).not.toContain('GLTFLoader');
     expect(forest).not.toContain('Texture2D.load');

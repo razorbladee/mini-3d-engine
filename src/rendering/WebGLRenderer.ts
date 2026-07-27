@@ -3,6 +3,7 @@ import { OrthographicCamera } from '../cameras/OrthographicCamera';
 import { Scene } from '../core/Scene';
 import type { BufferGeometry } from '../geometry/BufferGeometry';
 import { AmbientLight, DirectionalLight, HemisphereLight, PointLight, SpotLight } from '../lights/Light';
+import { ShaderMaterial, type ShaderUniformValue } from '../materials/ShaderMaterial';
 import { StandardMaterial } from '../materials/StandardMaterial';
 import { parseHexColor } from '../math/Color';
 import { Matrix4 } from '../math/Matrix4';
@@ -17,6 +18,10 @@ type DirectionalEntry = { color: number[]; direction: number[]; intensity: numbe
 type PointEntry = { color: number[]; position: number[]; intensity: number; distance: number };
 type SpotEntry = PointEntry & { direction: number[]; cosAngle: number; penumbra: number };
 type LightState = { ambient: number[]; directional: DirectionalEntry[]; point: PointEntry[]; spot: SpotEntry[] };
+type CustomProgram = {
+  state: ProgramState;
+  uniforms: Map<string, WebGLUniformLocation | null>;
+};
 
 /** Reusable per-frame scratch, so a steady-state frame allocates nothing. */
 const normalMatrixScratch = new Float32Array(9);
@@ -68,6 +73,7 @@ export class WebGLRenderer implements Renderer {
   private readonly shadowDirection = new Vector3();
   private readonly shadowUp = new Vector3(0, 1, 0);
   private activeShadowLight: DirectionalLight | null = null;
+  private readonly customPrograms = new Map<string, CustomProgram>();
 
   /** Reused across frames to keep the draw loop allocation-free. */
   private readonly drawList: { mesh: Mesh; depth: number; transparent: boolean }[] = [];
@@ -122,6 +128,34 @@ export class WebGLRenderer implements Renderer {
       this.canvas.style.height = `${height}px`;
     }
     this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+  }
+
+  private customProgram(material: ShaderMaterial) {
+    const key = `${material.lights ? 1 : 0}\0${material.vertexShader}\0${material.fragmentShader}`;
+    let entry = this.customPrograms.get(key);
+    if (!entry) {
+      const compiled = createProgram(this.gl, material.vertexShader, material.fragmentShader, material.lights);
+      const state = { ...compiled, program: this.resources.program(compiled.program) };
+      entry = { state, uniforms: new Map() };
+      this.customPrograms.set(key, entry);
+    }
+    for (const name in material.uniforms)
+      if (!entry.uniforms.has(name)) entry.uniforms.set(name, this.gl.getUniformLocation(entry.state.program, name));
+    return entry;
+  }
+
+  private uploadCustomUniform(location: WebGLUniformLocation | null, value: ShaderUniformValue) {
+    const gl = this.gl;
+    if (typeof value === 'number') {
+      gl.uniform1f(location, value);
+      return;
+    }
+    if (value.length === 2) gl.uniform2fv(location, value);
+    else if (value.length === 3) gl.uniform3fv(location, value);
+    else if (value.length === 4) gl.uniform4fv(location, value);
+    else if (value.length === 9) gl.uniformMatrix3fv(location, false, value);
+    else if (value.length === 16) gl.uniformMatrix4fv(location, false, value);
+    else throw new Error(`Unsupported shader uniform length: ${value.length}`);
   }
 
   private collectLights(scene: Scene) {
@@ -367,7 +401,9 @@ export class WebGLRenderer implements Renderer {
     });
 
     for (const { mesh } of this.drawList) {
-      const state = mesh.material instanceof StandardMaterial ? this.lit : this.basic;
+      const shaderMaterial = mesh.material instanceof ShaderMaterial ? mesh.material : null;
+      const custom = shaderMaterial ? this.customProgram(shaderMaterial) : null;
+      const state = custom?.state ?? (mesh.material instanceof StandardMaterial ? this.lit : this.basic);
       const { uniforms, attributes } = state;
       gl.useProgram(state.program);
 
@@ -394,7 +430,10 @@ export class WebGLRenderer implements Renderer {
         const material = mesh.material as StandardMaterial;
         gl.uniform1f(state.litUniforms!.roughness, material.roughness);
         gl.uniform1f(state.litUniforms!.metalness, material.metalness);
-      }
+      } else if (shaderMaterial?.lights) this.uploadLights(state, camera, mesh);
+      if (custom && shaderMaterial)
+        for (const name in shaderMaterial.uniforms)
+          this.uploadCustomUniform(custom.uniforms.get(name) ?? null, shaderMaterial.uniforms[name]);
 
       const buffers = this.resources.geometry(mesh.geometry);
       gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
@@ -449,6 +488,7 @@ export class WebGLRenderer implements Renderer {
     if (this.shadowFramebuffer) this.gl.deleteFramebuffer(this.shadowFramebuffer);
     this.shadowTexture = null;
     this.shadowFramebuffer = null;
+    this.customPrograms.clear();
     this.resources.dispose();
     this.disposed = true;
   }

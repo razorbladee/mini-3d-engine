@@ -12,6 +12,7 @@ export type ExampleGroup =
   | 'Extensions';
 export type ExampleId =
   | 'low-poly-forest'
+  | 'shader-forest'
   | 'primitives'
   | 'advanced-primitives'
   | 'materials'
@@ -54,6 +55,13 @@ export const examples: ExampleMeta[] = [
     title: 'Low-poly forest world',
     summary: 'A procedural forest, pond, terrain and moving clouds with soft directional shadows.',
     hint: 'Drag to explore, toggle shadows',
+  },
+  {
+    id: 'shader-forest',
+    group: 'Featured',
+    title: 'Shader forest world',
+    summary: 'The same forest objects rendered with custom toon, wind, water and shadow GLSL.',
+    hint: 'Compare with the scene above',
   },
   {
     id: 'primitives',

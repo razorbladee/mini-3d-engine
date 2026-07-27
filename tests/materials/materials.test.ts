@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BasicMaterial, StandardMaterial, Texture2D } from '../../src';
+import { BasicMaterial, ShaderMaterial, StandardMaterial, Texture2D } from '../../src';
 
 describe('BasicMaterial', () => {
   it('parses a six digit hex colour', () => {
@@ -36,6 +36,23 @@ describe('BasicMaterial', () => {
   it('keeps a supplied texture map', () => {
     const texture = Texture2D.fromImage({} as HTMLImageElement);
     expect(new BasicMaterial({ map: texture }).map).toBe(texture);
+  });
+});
+
+describe('ShaderMaterial', () => {
+  it('keeps custom GLSL, uniforms and lighting mode', () => {
+    const material = new ShaderMaterial({
+      vertexShader: 'vertex source',
+      fragmentShader: 'fragment source',
+      uniforms: { uTime: 2, uWind: new Float32Array([1, 2]) },
+      lights: true,
+      color: '#123456',
+    });
+    expect(material.vertexShader).toBe('vertex source');
+    expect(material.fragmentShader).toBe('fragment source');
+    expect(material.uniforms.uTime).toBe(2);
+    expect(material.lights).toBe(true);
+    expect(material).toBeInstanceOf(BasicMaterial);
   });
 });
 

@@ -36,6 +36,7 @@ import {
   SimplePhysics,
   SphereGeometry,
   SpotLight,
+  ShaderMaterial,
   StandardMaterial,
   Texture2D,
   TorusGeometry,
@@ -637,11 +638,137 @@ function postprocessLab(): Runtime {
   r.dispose = () => button.remove();
   return r;
 }
-function lowPolyForest(): Runtime {
+const forestVertexShader = `#version 300 es
+in vec3 position;
+in vec3 normal;
+in vec2 uv;
+uniform mat4 uModel;
+uniform mat4 uView;
+uniform mat4 uProjection;
+uniform mat3 uNormalMatrix;
+uniform mat4 uShadowMatrix;
+uniform float uTime;
+uniform float uWind;
+uniform float uShaderKind;
+out vec3 vWorldPosition;
+out vec3 vWorldNormal;
+out vec2 vUv;
+out vec4 vShadowPosition;
+void main() {
+  vec3 local = position;
+  if (uWind > 0.0) {
+    float leverage = max(local.y + 0.5, 0.0);
+    local.x += sin(uTime * 1.7 + uModel[3].x * 0.7 + uModel[3].z * 0.4) * uWind * leverage;
+  }
+  if (uShaderKind > 1.5 && uShaderKind < 2.5) {
+    local.y += (sin(local.x * 5.0 + uTime * 1.4) + cos(local.z * 4.0 + uTime)) * 0.025;
+  }
+  vec4 world = uModel * vec4(local, 1.0);
+  vWorldPosition = world.xyz;
+  vWorldNormal = normalize(uNormalMatrix * normal);
+  vUv = uv;
+  vShadowPosition = uShadowMatrix * world;
+  gl_Position = uProjection * uView * world;
+}`;
+
+const forestFragmentShader = `#version 300 es
+precision highp float;
+#define MAX_LIGHTS 4
+uniform vec4 uColor;
+uniform vec3 uAmbientColor;
+uniform int uDirectionalCount;
+uniform vec3 uDirectionalColor[MAX_LIGHTS];
+uniform vec3 uDirectionalDirection[MAX_LIGHTS];
+uniform float uDirectionalIntensity[MAX_LIGHTS];
+uniform sampler2D uShadowMap;
+uniform int uShadowEnabled;
+uniform float uShadowBias;
+uniform float uShadowStrength;
+uniform float uTime;
+uniform float uShaderKind;
+in vec3 vWorldPosition;
+in vec3 vWorldNormal;
+in vec2 vUv;
+in vec4 vShadowPosition;
+out vec4 outColor;
+
+float hash(vec2 value) {
+  return fract(sin(dot(value, vec2(127.1, 311.7))) * 43758.5453);
+}
+
+float shadowVisibility() {
+  if (uShadowEnabled == 0) return 1.0;
+  vec3 projected = vShadowPosition.xyz / max(vShadowPosition.w, 0.0001);
+  projected = projected * 0.5 + 0.5;
+  if (projected.x <= 0.0 || projected.x >= 1.0 || projected.y <= 0.0 || projected.y >= 1.0 || projected.z <= 0.0 || projected.z >= 1.0) return 1.0;
+  vec2 texel = 1.0 / vec2(textureSize(uShadowMap, 0));
+  float samples = 0.0;
+  for (int x = -1; x <= 1; x++) {
+    for (int y = -1; y <= 1; y++) {
+      float depth = texture(uShadowMap, projected.xy + vec2(float(x), float(y)) * texel).r;
+      samples += projected.z - uShadowBias <= depth ? 1.0 : 0.0;
+    }
+  }
+  return mix(1.0, samples / 9.0, uShadowStrength);
+}
+
+void main() {
+  vec3 base = uColor.rgb;
+  vec3 normal = normalize(vWorldNormal);
+  vec3 lightDirection = uDirectionalCount > 0 ? normalize(-uDirectionalDirection[0]) : vec3(0.4, 1.0, 0.3);
+  float diffuse = max(dot(normal, lightDirection), 0.0);
+  float toon = floor((diffuse * 0.82 + 0.18) * 4.0) / 3.0;
+  float visibility = uShaderKind > 2.5 && uShaderKind < 3.5 ? 1.0 : shadowVisibility();
+  vec3 lightColor = uDirectionalCount > 0 ? uDirectionalColor[0] * uDirectionalIntensity[0] : vec3(1.0);
+  vec3 lighting = max(uAmbientColor, vec3(0.16)) + lightColor * toon * visibility;
+
+  if (uShaderKind > 0.5 && uShaderKind < 1.5) {
+    float leafVariation = hash(floor(vWorldPosition.xz * 2.2));
+    base *= mix(0.76, 1.13, leafVariation);
+  } else if (uShaderKind > 1.5 && uShaderKind < 2.5) {
+    float ripple = sin(vWorldPosition.x * 3.2 + uTime * 1.3) * cos(vWorldPosition.z * 2.7 - uTime);
+    base = mix(base * 0.72, vec3(0.36, 0.76, 0.88), ripple * 0.5 + 0.5);
+    lighting += vec3(0.14, 0.2, 0.24);
+  } else if (uShaderKind > 2.5 && uShaderKind < 3.5) {
+    float cloudBand = floor((normal.y * 0.5 + 0.5) * 3.0) / 3.0;
+    lighting = vec3(0.72 + cloudBand * 0.3);
+  } else if (uShaderKind > 3.5 && uShaderKind < 4.5) {
+    base *= 0.82 + hash(floor(vWorldPosition.xz * 1.5)) * 0.24;
+  } else if (uShaderKind > 4.5) {
+    float rings = step(0.52, fract(length(vWorldPosition.xz) * 3.0));
+    base *= mix(0.86, 1.08, rings * 0.2);
+  }
+
+  outColor = vec4(clamp(base * lighting, 0.0, 1.0), uColor.a);
+}`;
+
+type ForestMaterialOptions = {
+  color: string;
+  roughness?: number;
+  metalness?: number;
+  transparent?: boolean;
+  opacity?: number;
+  doubleSided?: boolean;
+};
+
+function lowPolyForest(shaderMode = false): Runtime {
   const r = three();
   const engine = r.engine!;
   const scene = engine.scene;
-  (engine.renderer as WebGLRenderer).setClearColor('#8fc4dc');
+  const shaderMaterials: ShaderMaterial[] = [];
+  const forestMaterial = (options: ForestMaterialOptions, shaderKind = 0, wind = 0, unlit = false) => {
+    if (!shaderMode) return unlit ? new BasicMaterial(options) : new StandardMaterial(options);
+    const material = new ShaderMaterial({
+      ...options,
+      vertexShader: forestVertexShader,
+      fragmentShader: forestFragmentShader,
+      lights: true,
+      uniforms: { uTime: 0, uWind: wind, uShaderKind: shaderKind },
+    });
+    shaderMaterials.push(material);
+    return material;
+  };
+  (engine.renderer as WebGLRenderer).setClearColor(shaderMode ? '#735fa3' : '#8fc4dc');
   r.controls!.focus(new Vector3(0, 1.1, -4), 19);
 
   const ambient = new AmbientLight('#dff2df', 0.16);
@@ -686,14 +813,14 @@ function lowPolyForest(): Runtime {
   }
   const terrain = new Mesh(
     new BufferGeometry(terrainPositions),
-    new StandardMaterial({ color: '#789a4c', roughness: 0.96, metalness: 0 }),
+    forestMaterial({ color: '#789a4c', roughness: 0.96, metalness: 0 }, 0),
   );
   terrain.name = 'Faceted rolling terrain';
   scene.add(terrain);
 
   const water = new Mesh(
     new CylinderGeometry(1, 0.08, 18),
-    new StandardMaterial({ color: '#4d9db4', roughness: 0.18, metalness: 0.08, transparent: true, opacity: 0.82 }),
+    forestMaterial({ color: '#4d9db4', roughness: 0.18, metalness: 0.08, transparent: true, opacity: 0.82 }, 2),
   );
   water.name = 'Low-poly pond';
   water.position.set(pondX, -0.35, pondZ);
@@ -702,11 +829,11 @@ function lowPolyForest(): Runtime {
 
   const trunkGeometry = new CylinderGeometry(0.16, 1, 6);
   const crownGeometry = new ConeGeometry(1, 1, 7);
-  const trunkMaterial = new StandardMaterial({ color: '#76513a', roughness: 0.92 });
+  const trunkMaterial = forestMaterial({ color: '#76513a', roughness: 0.92 }, 5);
   const crownMaterials = [
-    new StandardMaterial({ color: '#315f3d', roughness: 0.9 }),
-    new StandardMaterial({ color: '#477b43', roughness: 0.88 }),
-    new StandardMaterial({ color: '#5b8a45', roughness: 0.86 }),
+    forestMaterial({ color: '#315f3d', roughness: 0.9 }, 1, 0.045),
+    forestMaterial({ color: '#477b43', roughness: 0.88 }, 1, 0.045),
+    forestMaterial({ color: '#5b8a45', roughness: 0.86 }, 1, 0.045),
   ];
   const treePositions = [
     [-8.4, -9.5],
@@ -746,7 +873,7 @@ function lowPolyForest(): Runtime {
   });
 
   const grassGeometry = new BufferGeometry([-0.08, 0, 0, 0.08, 0, 0, 0, 0.55, 0, 0, 0, -0.08, 0, 0, 0.08, 0, 0.48, 0]);
-  const grassMaterial = new StandardMaterial({ color: '#88a94e', roughness: 1, doubleSided: true });
+  const grassMaterial = forestMaterial({ color: '#88a94e', roughness: 1, doubleSided: true }, 1, 0.16);
   let seed = 1357;
   const random = () => ((seed = (seed * 48271) % 2147483647) - 1) / 2147483646;
   const grasses: Mesh[] = [];
@@ -764,8 +891,8 @@ function lowPolyForest(): Runtime {
 
   const shrubGeometry = new SphereGeometry(0.62, 7, 4);
   const shrubMaterials = [
-    new StandardMaterial({ color: '#426f3d', roughness: 0.96 }),
-    new StandardMaterial({ color: '#527f42', roughness: 0.96 }),
+    forestMaterial({ color: '#426f3d', roughness: 0.96 }, 1, 0.075),
+    forestMaterial({ color: '#527f42', roughness: 0.96 }, 1, 0.075),
   ];
   const shrubPositions = [
     [-7.5, -11.2],
@@ -795,8 +922,8 @@ function lowPolyForest(): Runtime {
     return shrub;
   });
 
-  const barkMaterial = new StandardMaterial({ color: '#684633', roughness: 0.98 });
-  const cutWoodMaterial = new StandardMaterial({ color: '#bd925e', roughness: 0.92 });
+  const barkMaterial = forestMaterial({ color: '#684633', roughness: 0.98 }, 5);
+  const cutWoodMaterial = forestMaterial({ color: '#bd925e', roughness: 0.92 }, 5);
   const logGeometry = new CylinderGeometry(0.26, 2.4, 8);
   const logCapGeometry = new CylinderGeometry(0.265, 0.035, 8);
   const logs: Node[] = [];
@@ -850,9 +977,9 @@ function lowPolyForest(): Runtime {
 
   const cliffGeometry = new SphereGeometry(1, 7, 4);
   const cliffMaterials = [
-    new StandardMaterial({ color: '#686f68', roughness: 0.98 }),
-    new StandardMaterial({ color: '#7c8175', roughness: 0.98 }),
-    new StandardMaterial({ color: '#59645c', roughness: 0.98 }),
+    forestMaterial({ color: '#686f68', roughness: 0.98 }, 4),
+    forestMaterial({ color: '#7c8175', roughness: 0.98 }, 4),
+    forestMaterial({ color: '#59645c', roughness: 0.98 }, 4),
   ];
   const cliffOrigin = new Vector3(8.2, 0, -11.7);
   const cliffPieces = [
@@ -876,7 +1003,7 @@ function lowPolyForest(): Runtime {
   });
 
   const rockGeometry = new SphereGeometry(0.42, 7, 4);
-  const rockMaterial = new StandardMaterial({ color: '#7b7f72', roughness: 0.98 });
+  const rockMaterial = forestMaterial({ color: '#7b7f72', roughness: 0.98 }, 4);
   for (let index = 0; index < 11; index += 1) {
     const angle = (index / 11) * Math.PI * 2;
     const x = pondX + Math.cos(angle) * 3.15;
@@ -889,7 +1016,7 @@ function lowPolyForest(): Runtime {
   }
 
   const cloudGeometry = new SphereGeometry(1, 8, 4);
-  const cloudMaterial = new BasicMaterial({ color: '#f3f4e8', transparent: true, opacity: 0.9 });
+  const cloudMaterial = forestMaterial({ color: '#f3f4e8', transparent: true, opacity: 0.9 }, 3, 0, true);
   const clouds = [
     [-7, 6.4, -8],
     [0.5, 7.2, -11],
@@ -922,6 +1049,7 @@ function lowPolyForest(): Runtime {
     },
   ]);
   r.update = ({ deltaTime, elapsed }) => {
+    for (const material of shaderMaterials) material.uniforms.uTime = elapsed;
     water.position.y = -0.35 + Math.sin(elapsed * 0.8) * 0.015;
     clouds.forEach((cloud, index) => {
       cloud.position.x += deltaTime * 0.09 * (index + 1);
@@ -929,9 +1057,13 @@ function lowPolyForest(): Runtime {
     });
   };
   r.stats = () =>
-    `shadows ${sun.castShadow ? '2048² PCF' : 'off'} · trees ${trees.length} · shrubs ${shrubs.length} · logs ${logs.length} · stumps ${stumps.length} · cliffs ${cliffs.length} · grass ${grasses.length} · clouds ${clouds.length} · external assets 0`;
+    `${shaderMode ? `custom GLSL ${shaderMaterials.length} materials` : 'standard materials'} · shadows ${sun.castShadow ? '2048² PCF' : 'off'} · trees ${trees.length} · shrubs ${shrubs.length} · logs ${logs.length} · stumps ${stumps.length} · cliffs ${cliffs.length} · grass ${grasses.length} · clouds ${clouds.length}`;
   r.dispose = () => controls.remove();
-  status('procedural low-poly world · directional shadows on');
+  status(
+    shaderMode
+      ? 'shader forest · toon light, wind and water GLSL'
+      : 'procedural low-poly world · directional shadows on',
+  );
   return r;
 }
 function customGeometry(): Runtime {
@@ -1391,6 +1523,7 @@ function rendererBackends(): Runtime {
 }
 function build(id: ExampleId): Runtime {
   if (id === 'low-poly-forest') return lowPolyForest();
+  if (id === 'shader-forest') return lowPolyForest(true);
   if (id === 'primitives') return primitives();
   if (id === 'advanced-primitives') return advanced();
   if (id === 'materials') return materials();

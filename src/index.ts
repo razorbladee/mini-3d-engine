@@ -23,6 +23,7 @@ export * from './geometry/TorusGeometry';
 export * from './geometry/CapsuleGeometry';
 export * from './materials/BasicMaterial';
 export * from './materials/StandardMaterial';
+export * from './materials/ShaderMaterial';
 export * from './objects/Mesh';
 export * from './lights/Light';
 export * from './interaction/Raycaster';

@@ -185,6 +185,7 @@ export function createFakeGL(options: { declaredUniforms?: string[] } = {}): Fak
     uniform1i: recordUniform,
     uniform1f: recordUniform,
     uniform1fv: recordUniform,
+    uniform2fv: recordUniform,
     uniform3fv: recordUniform,
     uniform4fv: recordUniform,
     uniformMatrix3fv: recordUniformMatrix,
