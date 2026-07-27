@@ -1,2 +1,2 @@
-import { describe, expect, it } from 'vitest'; import { GLTFLoader } from '../src';
-describe('GLTFLoader',()=>{it('rejects invalid GLB headers',async()=>{await expect(new GLTFLoader().parseGlb(new ArrayBuffer(8))).rejects.toThrow('Invalid GLB header')});});
+import {describe,expect,it} from 'vitest'; import {GLTFLoader} from '../src';
+describe('GLTFLoader',()=>{it('rejects invalid GLB headers',async()=>{await expect(new GLTFLoader().parseGlb(new ArrayBuffer(8))).rejects.toThrow('Invalid GLB header')});it('rejects missing JSON chunks',async()=>{const b=new ArrayBuffer(20);const v=new DataView(b);v.setUint32(0,0x46546c67,true);v.setUint32(12,0,true);v.setUint32(16,0,true);await expect(new GLTFLoader().parseGlb(b)).rejects.toThrow('GLB JSON chunk')})});
