@@ -57,6 +57,10 @@ describe('featured low-poly forest', () => {
     expect(forest).toContain('terrainPositions');
     expect(forest).toContain('treePositions');
     expect(forest).toContain('grassGeometry');
+    expect(forest).toContain('shrubPositions');
+    expect(forest).toContain('addLog');
+    expect(forest).toContain('stumpGeometry');
+    expect(forest).toContain('cliffPieces');
     expect(forest).toContain('cloudGeometry');
     expect(forest).toContain("name = 'Low-poly pond'");
   });

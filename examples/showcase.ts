@@ -762,6 +762,119 @@ function lowPolyForest(): Runtime {
     grasses.push(grass);
   }
 
+  const shrubGeometry = new SphereGeometry(0.62, 7, 4);
+  const shrubMaterials = [
+    new StandardMaterial({ color: '#426f3d', roughness: 0.96 }),
+    new StandardMaterial({ color: '#527f42', roughness: 0.96 }),
+  ];
+  const shrubPositions = [
+    [-7.5, -11.2],
+    [-5.4, -3.7],
+    [-2.4, -11.5],
+    [-1.8, 0.6],
+    [2.1, -9.7],
+    [4.8, -0.9],
+    [8.7, -5.8],
+    [7.1, 2.5],
+  ] as const;
+  const shrubs = shrubPositions.map(([x, z], index) => {
+    const shrub = new Node();
+    shrub.name = `Shrub ${index + 1}`;
+    shrub.position.set(x, terrainHeight(x, z), z);
+    [
+      [-0.38, 0.35, 0, 0.82],
+      [0.32, 0.42, 0.08, 0.96],
+      [0, 0.58, -0.24, 0.72],
+    ].forEach(([px, py, pz, scale], puffIndex) => {
+      const puff = new Mesh(shrubGeometry, shrubMaterials[(index + puffIndex) % shrubMaterials.length]);
+      puff.position.set(px, py, pz);
+      puff.scale.set(scale, scale * 0.8, scale);
+      shrub.add(puff);
+    });
+    scene.add(shrub);
+    return shrub;
+  });
+
+  const barkMaterial = new StandardMaterial({ color: '#684633', roughness: 0.98 });
+  const cutWoodMaterial = new StandardMaterial({ color: '#bd925e', roughness: 0.92 });
+  const logGeometry = new CylinderGeometry(0.26, 2.4, 8);
+  const logCapGeometry = new CylinderGeometry(0.265, 0.035, 8);
+  const logs: Node[] = [];
+  const addLog = (x: number, z: number, alongX: boolean) => {
+    const log = new Node();
+    log.name = `Fallen log ${logs.length + 1}`;
+    const y = terrainHeight(x, z) + 0.3;
+    const body = new Mesh(logGeometry, barkMaterial);
+    if (alongX) body.rotation.z = Math.PI / 2;
+    else body.rotation.x = Math.PI / 2;
+    log.position.set(x, y, z);
+    log.add(body);
+    for (const side of [-1, 1]) {
+      const cap = new Mesh(logCapGeometry, cutWoodMaterial);
+      if (alongX) {
+        cap.rotation.z = Math.PI / 2;
+        cap.position.x = side * 1.2;
+      } else {
+        cap.rotation.x = Math.PI / 2;
+        cap.position.z = side * 1.2;
+      }
+      log.add(cap);
+    }
+    scene.add(log);
+    logs.push(log);
+  };
+  addLog(-2.2, -12.4, true);
+  addLog(5.7, 1.9, false);
+
+  const stumpGeometry = new CylinderGeometry(0.34, 1, 8);
+  const stumpTopGeometry = new CylinderGeometry(0.345, 0.035, 8);
+  const stumps = [
+    [-6.9, -0.1, 0.72],
+    [0.7, -11.4, 0.58],
+    [6.1, -7.9, 0.82],
+    [8.6, 0.1, 0.64],
+  ].map(([x, z, height], index) => {
+    const stump = new Node();
+    stump.name = `Stump ${index + 1}`;
+    const ground = terrainHeight(x, z);
+    stump.position.set(x, ground, z);
+    const trunk = new Mesh(stumpGeometry, barkMaterial);
+    trunk.position.y = height / 2;
+    trunk.scale.y = height;
+    const top = new Mesh(stumpTopGeometry, cutWoodMaterial);
+    top.position.y = height + 0.018;
+    stump.add(trunk, top);
+    scene.add(stump);
+    return stump;
+  });
+
+  const cliffGeometry = new SphereGeometry(1, 7, 4);
+  const cliffMaterials = [
+    new StandardMaterial({ color: '#686f68', roughness: 0.98 }),
+    new StandardMaterial({ color: '#7c8175', roughness: 0.98 }),
+    new StandardMaterial({ color: '#59645c', roughness: 0.98 }),
+  ];
+  const cliffOrigin = new Vector3(8.2, 0, -11.7);
+  const cliffPieces = [
+    [-1.4, 0.8, 0.1, 1.35, 1.8, 1.1],
+    [0, 1.15, 0, 1.55, 2.5, 1.35],
+    [1.35, 0.72, 0.25, 1.1, 1.5, 1.25],
+    [-0.65, 1.75, -0.15, 0.95, 1.55, 0.9],
+    [0.7, 2.05, -0.2, 0.82, 1.5, 0.78],
+    [0.1, 2.85, -0.35, 0.62, 1.05, 0.58],
+  ] as const;
+  const cliffs = cliffPieces.map(([x, y, z, sx, sy, sz], index) => {
+    const rock = new Mesh(cliffGeometry, cliffMaterials[index % cliffMaterials.length]);
+    rock.name = `Rock formation ${index + 1}`;
+    const worldX = cliffOrigin.x + x;
+    const worldZ = cliffOrigin.z + z;
+    rock.position.set(worldX, terrainHeight(worldX, worldZ) + y, worldZ);
+    rock.scale.set(sx, sy, sz);
+    rock.rotation.y = index * 0.73;
+    scene.add(rock);
+    return rock;
+  });
+
   const rockGeometry = new SphereGeometry(0.42, 7, 4);
   const rockMaterial = new StandardMaterial({ color: '#7b7f72', roughness: 0.98 });
   for (let index = 0; index < 11; index += 1) {
@@ -816,7 +929,7 @@ function lowPolyForest(): Runtime {
     });
   };
   r.stats = () =>
-    `shadows ${sun.castShadow ? '2048² PCF' : 'off'} · trees ${trees.length} · grass ${grasses.length} · clouds ${clouds.length} · external assets 0`;
+    `shadows ${sun.castShadow ? '2048² PCF' : 'off'} · trees ${trees.length} · shrubs ${shrubs.length} · logs ${logs.length} · stumps ${stumps.length} · cliffs ${cliffs.length} · grass ${grasses.length} · clouds ${clouds.length} · external assets 0`;
   r.dispose = () => controls.remove();
   status('procedural low-poly world · directional shadows on');
   return r;
