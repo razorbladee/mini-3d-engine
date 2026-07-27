@@ -1,22 +1,21 @@
 # Mini 3D Engine
 
-Small TypeScript/WebGL2 library for interactive 3D scenes.
+Компактная TypeScript/WebGL2-библиотека для интерактивных 3D-сцен.
 
-## Documentation
+## Документация
 
-- [MVP specification](docs/MVP-SPEC.md), baseline document, do not rewrite
-- [Extensions](docs/EXTENSIONS.md), textures, simple physics, and post-processing
-- [Live showcase](https://stackblitz.com/github/razorbladee/mini-3d-engine), three browser examples
+- [API Reference](docs/API.md), полный текущий публичный API
+- [Architecture](docs/ARCHITECTURE.md), слои и правила изменений
+- [MVP specification](docs/MVP-SPEC.md), неизменяемая базовая спецификация
+- [Extensions](docs/EXTENSIONS.md), текстуры, physics и post-processing
+- [Roadmap and technical specification](docs/ROADMAP-TZ.md), следующий цикл фич
+- [Contributing](docs/CONTRIBUTING.md), обязательные тесты и обновление docs
 
-## What is implemented
+## Что реализовано
 
-The repository includes the original MVP plus small extension APIs: `Texture2D` for async image decoding, `SimplePhysics` for gravity and a floor constraint, and `PostProcess` for ordered render passes. The default demo page shows all three with interactive controls.
+В движке есть scene graph, TRS-матрицы, Perspective/Orthographic cameras, WebGL2 renderer с depth/culling и lighting, Basic/Standard materials, diffuse Texture2D maps, Box/Plane/Sphere/Cylinder/Torus/Capsule geometry, Ambient/Directional/Point/Spot/Hemisphere lights, Raycaster, OrbitControls с focus, SimplePhysics, PostProcess, GLTFLoader для JSON glTF/GLB и базовый AnimationClip/AnimationMixer.
 
-### Public surface
-
-`Vector2`, `Vector3`, `Vector4`, `Matrix4`, `Quaternion`, `Euler`, `Color`, `Node`, `Scene`, `Engine`, `Camera`, `PerspectiveCamera`, `OrthographicCamera`, `Mesh`, `BufferGeometry`, `BufferAttribute`, `BoxGeometry`, `PlaneGeometry`, `SphereGeometry`, `BasicMaterial`, `StandardMaterial`, `AmbientLight`, `DirectionalLight`, `PointLight`, `Raycaster`, `OrbitControls`, `WebGLRenderer`, `Texture2D`, `SimplePhysics`, and `PostProcess`.
-
-## Run
+## Запуск
 
 ```bash
 npm install
@@ -25,6 +24,8 @@ npm run build
 npm run test
 ```
 
-## Scope
+Главная страница примеров: `index.html`. Она содержит scene browser с геометрией, материалами, procedural/image textures, lighting, physics, interaction, post-processing и glTF model scenes.
 
-This is an MVP, not a Three.js replacement. glTF, WebGPU, advanced lighting, editor gizmos, and advanced animation remain follow-up work. The immutable baseline is in `docs/MVP-SPEC.md`; future additions go into new documentation or extension modules.
+## Правило проекта
+
+Каждое изменение `src/` сопровождается тестом, актуализацией docs и, если функция пользовательская, example scene. Базовый MVP не переписывается задним числом, новые возможности добавляются отдельными расширениями.
