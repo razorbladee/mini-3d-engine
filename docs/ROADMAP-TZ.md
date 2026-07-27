@@ -1,24 +1,27 @@
 # ТЗ: следующий цикл Mini 3D Engine
 
-## Выполнено в текущем цикле
+## Выполнено
 
-- API/архитектурная документация и contributing rules;
+- API/архитектура/contributing docs;
 - AnimationClip/AnimationMixer: interpolation, loop, pause/resume, timeScale;
 - GLTFLoader: JSON/GLB, external buffers, indexed/interleaved attributes, transforms, multiple primitives и bounds;
-- AssetManager: deduplicated URL cache, progress hooks и failed-load eviction;
-- InputMap, SphereBounds/AabbBounds, PerformanceMetrics;
-- primitive geometry, lighting, normal matrix, transparent sorting, blending и depth-mask;
-- новые production foundation demos: animation, asset-manager, transparent, bounds-input;
-- тесты и docs обновлены вместе с code changes.
+- AssetManager, InputMap, SphereBounds/AabbBounds, PerformanceMetrics;
+- primitive geometry, lighting, normal matrix, transparent sorting, blending, depth-mask;
+- `Renderer` backend contract и явный WebGPURenderer boundary;
+- `Frustum` для point/sphere tests;
+- `ParticleSystem` CPU simulation;
+- `AudioHooks` no-op boundary;
+- `SceneInspector` snapshot helper;
+- `PhysicsAdapter` extension boundary;
+- roadmap modules, tests and docs synchronized.
 
-## Следующий production-слой
+## Осталось отдельным production backlog
 
 - glTF external image maps и PBR baseColorTexture;
 - glTF animation channels -> AnimationMixer;
-- renderer backend interface и WebGPU adapter boundary;
-- frustum culling;
-- particles, debug inspector, audio hooks и physics adapter.
+- полноценный WebGPU backend;
+- GPU frustum culling, particles renderer, inspector UI и audio backend.
 
 ## Definition of Done
 
-`npm run build` и `npm run test` проходят; docs актуальны; новая фича имеет модуль, public export, test и demo; existing demo scenes не исчезают.
+`npm run build` и `npm run test` проходят; docs актуальны; новая фича имеет module, export, test и demo; existing demo scenes не исчезают.
