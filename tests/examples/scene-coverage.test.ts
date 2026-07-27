@@ -71,6 +71,8 @@ describe('featured low-poly forest', () => {
     expect(buildBody).toContain("if (id === 'cinematic-shader-forest') return lowPolyForest('cinematic')");
     expect(source).toContain('const forestVertexShader');
     expect(source).toContain('const cinematicForestFragmentShader');
+    expect(source).toContain('const cinematicSkyFragmentShader');
+    expect(source).toContain('Procedural atmosphere dome');
     expect(source).toContain('const forestFragmentShader');
     expect(forest).toContain('new ShaderMaterial');
   });

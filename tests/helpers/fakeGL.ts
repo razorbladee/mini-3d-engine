@@ -131,6 +131,14 @@ export function createFakeGL(options: { declaredUniforms?: string[] } = {}): Fak
     texParameteri: (_target: number, name: number, value: number) => {
       (gl as unknown as FakeGL).__texParams.push({ name, value });
     },
+    texParameterf: (_target: number, name: number, value: number) => {
+      (gl as unknown as FakeGL).__texParams.push({ name, value });
+    },
+    getExtension: (name: string) =>
+      name === 'EXT_texture_filter_anisotropic'
+        ? { TEXTURE_MAX_ANISOTROPY_EXT: 0x84fe, MAX_TEXTURE_MAX_ANISOTROPY_EXT: 0x84ff }
+        : null,
+    getParameter: (name: number) => (name === 0x84ff ? 16 : null),
     texImage2D: () => {},
     generateMipmap: () => {
       (gl as unknown as FakeGL).__mipmapCount += 1;

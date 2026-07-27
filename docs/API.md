@@ -45,8 +45,9 @@ Cone, Torus, Capsule — все с корректной CCW-намоткой, б
 получают свободные texture units. Через `lights: true` материал получает
 стандартные lighting/shadow uniforms. Одинаковые shader sources используют
 один cached GPU program. `Texture2D` загружает изображения,
-поддерживает `minFilter`/`magFilter`/`wrapS`/`wrapT`/`generateMipmaps`/`flipY`,
-восстанавливает pixel-store после загрузки и даёт понятную ошибку при сбое.
+поддерживает `minFilter`/`magFilter`/`wrapS`/`wrapT`/`generateMipmaps`/`flipY`
+и anisotropic filtering через `anisotropy`, восстанавливает pixel-store после
+загрузки и даёт понятную ошибку при сбое.
 
 `wireframe` рисует каждый треугольник как `LINE_LOOP`; `doubleSided` отключает
 face culling, а `transparent` включает alpha blending с отключённой записью

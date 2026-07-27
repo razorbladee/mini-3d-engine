@@ -22,7 +22,8 @@ normal map. Это временные demo assets с сохранением ис
 
 Cinematic-вариант использует triplanar mapping земли и скал, два scrolling
 normal-map слоя воды, Fresnel/specular, detail noise, foliage transmission,
-cloud rim lighting, distance fog и filmic tone mapping. Это также проверяет
+cloud rim lighting, distance fog, filmic tone mapping, anisotropic filtering и
+процедурный sky dome с sun glow и высотным градиентом. Это также проверяет
 поддержку нескольких `Texture2D` sampler uniforms в `ShaderMaterial`.
 
 ## GLTFLoader

@@ -8,6 +8,8 @@ export type TextureOptions = {
   wrapT?: TextureWrap;
   /** Generate mipmaps when the image is power-of-two in both dimensions. */
   generateMipmaps?: boolean;
+  /** Requested EXT_texture_filter_anisotropic level; clamped to device support. */
+  anisotropy?: number;
   flipY?: boolean;
 };
 
@@ -36,6 +38,7 @@ export class Texture2D {
       wrapS: options.wrapS ?? 'clamp',
       wrapT: options.wrapT ?? 'clamp',
       generateMipmaps: options.generateMipmaps ?? true,
+      anisotropy: Math.max(1, options.anisotropy ?? 1),
       flipY: options.flipY ?? true,
     };
   }
@@ -70,7 +73,7 @@ export class Texture2D {
     const texture = gl.createTexture();
     if (!texture) throw new Error('Unable to create WebGL texture');
 
-    const { flipY, wrapS, wrapT, minFilter, magFilter, generateMipmaps } = this.options;
+    const { flipY, wrapS, wrapT, minFilter, magFilter, generateMipmaps, anisotropy } = this.options;
     gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, flipY ? 1 : 0);
 
@@ -94,6 +97,16 @@ export class Texture2D {
           ? gl.NEAREST
           : gl.LINEAR,
     );
+    if (anisotropy > 1) {
+      const extension = gl.getExtension('EXT_texture_filter_anisotropic') as {
+        TEXTURE_MAX_ANISOTROPY_EXT: number;
+        MAX_TEXTURE_MAX_ANISOTROPY_EXT: number;
+      } | null;
+      if (extension) {
+        const supported = Number(gl.getParameter(extension.MAX_TEXTURE_MAX_ANISOTROPY_EXT)) || 1;
+        gl.texParameterf(gl.TEXTURE_2D, extension.TEXTURE_MAX_ANISOTROPY_EXT, Math.min(anisotropy, supported));
+      }
+    }
 
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.image);
     if (mipmappable) gl.generateMipmap(gl.TEXTURE_2D);

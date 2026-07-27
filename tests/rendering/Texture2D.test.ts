@@ -68,9 +68,21 @@ describe('Texture2D upload', () => {
     expect(mag?.value).toBe(gl.NEAREST);
   });
 
+  it('applies and clamps anisotropic filtering when supported', () => {
+    const gl = createFakeGL();
+    Texture2D.fromImage(fakeImage(128, 128), { anisotropy: 32 }).upload(gl);
+    expect(gl.__texParams.find((p) => p.name === 0x84fe)?.value).toBe(16);
+  });
+
   it('defaults to linear filtering and clamped wrapping', () => {
     const texture = Texture2D.fromImage(fakeImage(64, 64));
-    expect(texture.options).toMatchObject({ minFilter: 'linear', magFilter: 'linear', wrapS: 'clamp', flipY: true });
+    expect(texture.options).toMatchObject({
+      minFilter: 'linear',
+      magFilter: 'linear',
+      wrapS: 'clamp',
+      anisotropy: 1,
+      flipY: true,
+    });
   });
 });
 

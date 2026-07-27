@@ -930,6 +930,58 @@ void main() {
   outColor = vec4(clamp(color, 0.0, 1.0), alpha);
 }`;
 
+const cinematicSkyVertexShader = `#version 300 es
+in vec3 position;
+uniform mat4 uModel;
+uniform mat4 uView;
+uniform mat4 uProjection;
+out vec3 vSkyDirection;
+void main() {
+  vSkyDirection = position;
+  vec4 clip = uProjection * uView * uModel * vec4(position, 1.0);
+  gl_Position = vec4(clip.xy, clip.w * 0.9995, clip.w);
+}`;
+
+const cinematicSkyFragmentShader = `#version 300 es
+precision highp float;
+uniform float uTime;
+uniform vec3 uSunDirection;
+in vec3 vSkyDirection;
+out vec4 outColor;
+
+float noise(vec2 point) {
+  vec2 cell = floor(point);
+  vec2 local = fract(point);
+  local = local * local * (3.0 - 2.0 * local);
+  float a = fract(sin(dot(cell, vec2(127.1, 311.7))) * 43758.5453);
+  float b = fract(sin(dot(cell + vec2(1.0, 0.0), vec2(127.1, 311.7))) * 43758.5453);
+  float c = fract(sin(dot(cell + vec2(0.0, 1.0), vec2(127.1, 311.7))) * 43758.5453);
+  float d = fract(sin(dot(cell + vec2(1.0), vec2(127.1, 311.7))) * 43758.5453);
+  return mix(mix(a, b, local.x), mix(c, d, local.x), local.y);
+}
+
+void main() {
+  vec3 direction = normalize(vSkyDirection);
+  float height = direction.y * 0.5 + 0.5;
+  vec3 horizon = vec3(0.62, 0.76, 0.84);
+  vec3 zenith = vec3(0.08, 0.24, 0.46);
+  vec3 color = mix(horizon, zenith, smoothstep(0.25, 0.95, height));
+  float sunset = pow(1.0 - abs(direction.y), 6.0);
+  color += vec3(0.32, 0.17, 0.08) * sunset;
+
+  float sunDot = max(dot(direction, normalize(uSunDirection)), 0.0);
+  color += vec3(1.0, 0.72, 0.32) * pow(sunDot, 28.0) * 0.55;
+  color += vec3(1.0, 0.93, 0.72) * pow(sunDot, 320.0) * 2.4;
+
+  vec2 cloudUv = direction.xz / max(direction.y + 0.42, 0.12) * 1.7;
+  cloudUv += vec2(uTime * 0.006, -uTime * 0.003);
+  float clouds = noise(cloudUv) * 0.62 + noise(cloudUv * 2.1 + 7.0) * 0.28 + noise(cloudUv * 4.3) * 0.1;
+  clouds = smoothstep(0.56, 0.72, clouds) * smoothstep(0.05, 0.4, direction.y);
+  color = mix(color, vec3(0.9, 0.93, 0.94), clouds * 0.42);
+
+  outColor = vec4(pow(color, vec3(1.0 / 2.2)), 1.0);
+}`;
+
 type ForestMaterialOptions = {
   color: string;
   roughness?: number;
@@ -990,6 +1042,26 @@ function lowPolyForest(mode: 'standard' | 'shader' | 'textured' | 'cinematic' = 
   sun.shadowStrength = 0.86;
   sun.shadowCenter.set(0, 1.5, -4);
   scene.add(ambient, sky, sun);
+
+  let atmosphereDome: Mesh | null = null;
+  let atmosphereMaterial: ShaderMaterial | null = null;
+  if (enhancedMode) {
+    atmosphereMaterial = new ShaderMaterial({
+      vertexShader: cinematicSkyVertexShader,
+      fragmentShader: cinematicSkyFragmentShader,
+      doubleSided: true,
+      uniforms: {
+        uTime: 0,
+        uSunDirection: new Float32Array([0.46, 0.83, 0.3]),
+      },
+    });
+    atmosphereDome = new Mesh(new SphereGeometry(1, 32, 16), atmosphereMaterial);
+    atmosphereDome.name = 'Procedural atmosphere dome';
+    atmosphereDome.scale.setScalar(60);
+    atmosphereDome.castShadow = false;
+    atmosphereDome.receiveShadow = false;
+    scene.add(atmosphereDome);
+  }
 
   const pondX = 3.2;
   const pondZ = -4.2;
@@ -1281,7 +1353,12 @@ function lowPolyForest(mode: 'standard' | 'shader' | 'textured' | 'cinematic' = 
     ]);
     status(`loading ${totalTextures} web textures…`);
     for (const [kind, url] of textureSources) {
-      void Texture2D.load(url, { wrapS: 'repeat', wrapT: 'repeat', generateMipmaps: true })
+      void Texture2D.load(url, {
+        wrapS: 'repeat',
+        wrapT: 'repeat',
+        generateMipmaps: true,
+        anisotropy: enhancedMode ? 8 : 2,
+      })
         .then((loaded) => {
           if (disposed) return;
           for (const material of materialsByKind.get(kind) ?? []) material.map = loaded;
@@ -1294,7 +1371,7 @@ function lowPolyForest(mode: 'standard' | 'shader' | 'textured' | 'cinematic' = 
     }
     if (enhancedMode) {
       const loadAuxiliary = (url: string, apply: (texture: Texture2D) => void) =>
-        Texture2D.load(url, { wrapS: 'repeat', wrapT: 'repeat', generateMipmaps: true })
+        Texture2D.load(url, { wrapS: 'repeat', wrapT: 'repeat', generateMipmaps: true, anisotropy: 8 })
           .then((loaded) => {
             if (disposed) return;
             apply(loaded);
@@ -1337,6 +1414,10 @@ function lowPolyForest(mode: 'standard' | 'shader' | 'textured' | 'cinematic' = 
   ]);
   r.update = ({ deltaTime, elapsed }) => {
     for (const material of shaderMaterials) material.uniforms.uTime = elapsed;
+    if (atmosphereDome && atmosphereMaterial) {
+      atmosphereDome.position.copy(engine.camera.position);
+      atmosphereMaterial.uniforms.uTime = elapsed;
+    }
     water.position.y = -0.35 + Math.sin(elapsed * 0.8) * 0.015;
     clouds.forEach((cloud, index) => {
       cloud.position.x += deltaTime * 0.09 * (index + 1);
