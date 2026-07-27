@@ -1,0 +1,1 @@
+import {BufferGeometry} from './BufferGeometry'; export class BoxGeometry extends BufferGeometry { constructor(size=1){const s=size/2;super([-s,-s,s,s,-s,s,s,s,s,-s,-s,s,s,s,s,-s,s,s,-s,-s,-s,-s,s,-s,s,s,-s,s,s,-s,s,-s,s,s,-s,-s,-s,-s,-s,s,-s,s,s,-s,s,s,-s,s,s,s,s,s,-s,s,s,s,-s,s,-s,-s,-s,s,-s,-s,s,s,-s,s,s,s,s,s,-s,s,s,s,-s,s,-s,-s,-s,-s,-s,s,-s,s,s,-s,s,s]);} }
