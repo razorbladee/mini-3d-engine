@@ -1,3 +1,5 @@
+import { BufferAttribute } from './BufferAttribute';
+
 export class BufferGeometry {
   positions: Float32Array;
   normals: Float32Array;
@@ -6,6 +8,20 @@ export class BufferGeometry {
   normalBuffer: WebGLBuffer | null = null;
   uvBuffer: WebGLBuffer | null = null;
   readonly boundingRadius: number;
+
+  /** Number of vertices in this geometry. */
+  get vertexCount() {
+    return this.positions.length / 3;
+  }
+
+  /** Vertex channels as BufferAttribute views, per MVP-SPEC 4.3. */
+  get attributes() {
+    return {
+      position: new BufferAttribute(this.positions, 3),
+      normal: new BufferAttribute(this.normals, 3),
+      uv: new BufferAttribute(this.uvs, 2),
+    };
+  }
 
   constructor(positions: number[], normals?: number[], uvs?: number[]) {
     if (positions.length % 3 !== 0) throw new Error('Geometry positions must contain complete xyz triples');
@@ -24,23 +40,37 @@ export class BufferGeometry {
     this.boundingRadius = Math.sqrt(radiusSquared);
   }
 
+  /**
+   * Planar projection onto the two axes with the largest extent.
+   *
+   * Projecting onto a fixed XZ plane collapsed every v to zero for geometry
+   * lying in XY, such as PlaneGeometry (AUDIT-TZ P1-8). Choosing the dominant
+   * axes keeps the fallback usable for arbitrary custom geometry; primitives
+   * supply purpose-built UVs instead of relying on it.
+   */
   private static computePlanarUvs(positions: Float32Array) {
-    let minX = Infinity,
-      maxX = -Infinity,
-      minZ = Infinity,
-      maxZ = -Infinity;
+    const min = [Infinity, Infinity, Infinity];
+    const max = [-Infinity, -Infinity, -Infinity];
     for (let index = 0; index < positions.length; index += 3) {
-      minX = Math.min(minX, positions[index]);
-      maxX = Math.max(maxX, positions[index]);
-      minZ = Math.min(minZ, positions[index + 2]);
-      maxZ = Math.max(maxZ, positions[index + 2]);
+      for (let axis = 0; axis < 3; axis += 1) {
+        min[axis] = Math.min(min[axis], positions[index + axis]);
+        max[axis] = Math.max(max[axis], positions[index + axis]);
+      }
     }
-    const width = maxX - minX || 1;
-    const height = maxZ - minZ || 1;
-    const uvs: number[] = [];
-    for (let index = 0; index < positions.length; index += 3)
-      uvs.push((positions[index] - minX) / width, (positions[index + 2] - minZ) / height);
-    return new Float32Array(uvs);
+
+    const extent = [max[0] - min[0], max[1] - min[1], max[2] - min[2]];
+    // Drop the axis with the smallest extent, project onto the other two.
+    const thinnest = extent.indexOf(Math.min(...extent));
+    const [u, v] = [0, 1, 2].filter((axis) => axis !== thinnest);
+
+    const width = extent[u] || 1;
+    const height = extent[v] || 1;
+    const uvs = new Float32Array((positions.length / 3) * 2);
+    for (let index = 0, target = 0; index < positions.length; index += 3, target += 2) {
+      uvs[target] = (positions[index + u] - min[u]) / width;
+      uvs[target + 1] = (positions[index + v] - min[v]) / height;
+    }
+    return uvs;
   }
 
   private static computeFaceNormals(positions: Float32Array) {

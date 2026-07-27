@@ -110,11 +110,26 @@ describe('default UV mapping', () => {
     expect([...corners].sort()).toEqual(['0,0', '0,1', '1,0', '1,1']);
   });
 
-  it('gives the box distinct UVs per face', () => {
-    const uvs = new BoxGeometry(2).uvs;
-    const unique = new Set<string>();
-    for (let i = 0; i < uvs.length; i += 2) unique.add(`${uvs[i]},${uvs[i + 1]}`);
-    expect(unique.size).toBeGreaterThanOrEqual(12);
+  it('maps every box face across the full UV range', () => {
+    // Each face is mapped independently to 0..1, so the six faces share the same
+    // four corner pairs. The real invariant is per-face coverage: every face
+    // must span the whole unit square rather than collapsing, which is what the
+    // XZ planar fallback used to do to the four side faces.
+    const box = new BoxGeometry(2);
+    for (let face = 0; face < 6; face += 1) {
+      const start = face * 6 * 2;
+      const corners = new Set<string>();
+      for (let i = start; i < start + 12; i += 2) corners.add(`${box.uvs[i]},${box.uvs[i + 1]}`);
+      expect([...corners].sort()).toEqual(['0,0', '0,1', '1,0', '1,1']);
+    }
+  });
+
+  it('gives each box face its own normal', () => {
+    const box = new BoxGeometry(2);
+    const faceNormals = new Set<string>();
+    for (let i = 0; i < box.normals.length; i += 3)
+      faceNormals.add(`${box.normals[i]},${box.normals[i + 1]},${box.normals[i + 2]}`);
+    expect(faceNormals.size).toBe(6);
   });
 
   it('keeps UVs inside the unit square', () => {
