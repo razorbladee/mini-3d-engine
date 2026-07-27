@@ -1,0 +1,1 @@
+export class BufferGeometry { positions:Float32Array; gpuBuffer:WebGLBuffer|null=null; constructor(positions:number[]){this.positions=new Float32Array(positions)} dispose(gl:WebGL2RenderingContext){if(this.gpuBuffer)gl.deleteBuffer(this.gpuBuffer);this.gpuBuffer=null} }
