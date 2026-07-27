@@ -6,10 +6,11 @@ Small TypeScript/WebGL2 library for interactive 3D scenes.
 
 - [MVP specification](docs/MVP-SPEC.md), baseline document, do not rewrite
 - [Extensions](docs/EXTENSIONS.md), textures, simple physics, and post-processing
+- [Live showcase](https://stackblitz.com/github/razorbladee/mini-3d-engine), three browser examples
 
-## MVP status
+## What is implemented
 
-The original MVP issues are implemented in `main`: math primitives, scene graph, camera system, WebGL2 renderer, buffer geometry, materials, lights, Engine lifecycle, raycasting/controls, demo, tests, and documentation.
+The repository includes the original MVP plus small extension APIs: `Texture2D` for async image decoding, `SimplePhysics` for gravity and a floor constraint, and `PostProcess` for ordered render passes. The default demo page shows all three with interactive controls.
 
 ### Public surface
 
@@ -26,4 +27,4 @@ npm run test
 
 ## Scope
 
-This is an MVP, not a Three.js replacement. Textures, glTF, physics, post-processing, WebGPU, editor gizmos, and advanced animation remain follow-up work. The browser demo is intentionally small and StackBlitz-friendly.
+This is an MVP, not a Three.js replacement. glTF, WebGPU, advanced lighting, editor gizmos, and advanced animation remain follow-up work. The immutable baseline is in `docs/MVP-SPEC.md`; future additions go into new documentation or extension modules.
