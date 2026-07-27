@@ -18,10 +18,10 @@
 Ambient, Directional, Point, Spot и Hemisphere lights. Perspective и Orthographic cameras. OrbitControls поддерживает drag, touch, zoom, reset и focus.
 
 ## Interaction and production foundations
-`Raycaster` вычисляет пересечения. `InputMap` связывает действия с клавишами. `SphereBounds` и `AabbBounds` предоставляют базовые проверки bounds. `AssetManager` дедуплицирует URL-загрузки, сообщает старт/завершение progress и сбрасывает failed promises. `PerformanceMetrics` даёт runtime counters.
+`Raycaster` вычисляет пересечения. `InputMap` связывает действия с клавишами. `SphereBounds`, `AabbBounds` и `Frustum` предоставляют базовые visibility tests. `AssetManager` дедуплицирует URL-загрузки, сообщает progress и сбрасывает failed promises. `PerformanceMetrics` даёт runtime counters. `ParticleSystem` моделирует CPU particles. `SceneInspector` строит debug snapshot. `AudioHooks` и `PhysicsAdapter` задают optional boundaries без runtime-зависимостей.
 
 ## Renderer
-WebGLRenderer поддерживает depth test/write, culling, transparent sorting, alpha blending, depth-mask handling, cached geometry buffers и inverse-transpose normal matrix для non-uniform scale.
+`Renderer` задаёт backend contract. `WebGLRenderer` поддерживает depth test/write, culling, transparent sorting, alpha blending, depth-mask handling, cached geometry buffers и inverse-transpose normal matrix для non-uniform scale. `WebGPURenderer` пока является явной boundary-заглушкой с понятной ошибкой, WebGL2 остаётся default.
 
 ## Loading and animation
 `GLTFLoader` читает JSON glTF/GLB, indexed/interleaved attributes, multiple primitives, transforms и bounds. `AnimationClip` и `AnimationMixer` поддерживают keyframe interpolation, play, stop, pause, resume, loop, timeScale и non-loop playback. Skinning, glTF image maps и animation channel binding остаются следующим слоем.
