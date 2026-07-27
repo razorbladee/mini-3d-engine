@@ -1,0 +1,1 @@
+export class BasicMaterial { color:Float32Array; constructor(options:{color?:string}={}){this.color=BasicMaterial.parseColor(options.color||'#4f8cff')} static parseColor(value:string){const h=value.replace('#','');const n=parseInt(h.length===3?h.split('').map(c=>c+c).join(''):h,16);return new Float32Array([(n>>16&255)/255,(n>>8&255)/255,(n&255)/255,1])} }
