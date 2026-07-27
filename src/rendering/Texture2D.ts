@@ -1,0 +1,1 @@
+export class Texture2D { private constructor(public readonly image:HTMLImageElement) {} static async load(url:string){const image=new Image();image.decoding='async';image.src=url;await image.decode();return new Texture2D(image)} static fromImage(image:HTMLImageElement){return new Texture2D(image)} }
