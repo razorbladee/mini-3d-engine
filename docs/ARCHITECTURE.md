@@ -20,13 +20,15 @@
 2. Renderer не должен содержать parser-логику форматов.
 3. Loader не должен напрямую управлять камерой или DOM.
 4. Geometry не должна зависеть от renderer.
-5. Любая GPU resource имеет owner, cache и dispose path.
+5. Любая GPU resource имеет owner (`ResourceCache`), cache и dispose path.
 6. Любая новая возможность получает тест и example scene.
 7. Документация обновляется в том же commit, что и код.
 
 ## Render lifecycle
 
-`Engine.start()` вызывает user update, затем `renderer.render(scene, camera)`. Renderer обновляет world matrices, собирает lights, выбирает shader, bind-ит cached buffers/textures и рисует mesh. `Engine.stop()` останавливает loop, `dispose()` снимает listeners и удаляет programs.
+`Engine.start()` вызывает user update, затем `renderer.render(scene, camera)`, затем `endFrame()` у зарегистрированных через `Engine.track()` потребителей кадра. Renderer обновляет world matrices, собирает lights, сортирует меши по глубине вдоль оси взгляда, выбирает shader, bind-ит cached buffers/textures и рисует mesh. `Engine.stop()` останавливает loop, `dispose()` снимает listeners и освобождает **все** GPU-ресурсы через `ResourceCache`.
+
+`Engine` типизирован интерфейсом `Renderer` и принимает `createRenderer`, поэтому backend действительно заменяем. Пересчёт проекции при resize принадлежит камере (`Camera.setViewportSize`), а не ядру.
 
 ## Решения из других движков
 

@@ -24,10 +24,7 @@
 
 ```ts
 const engine = new Engine({ canvas });
-const cube = new Mesh(
-  new BoxGeometry(1, 1, 1),
-  new BasicMaterial({ color: '#4f8cff' })
-);
+const cube = new Mesh(new BoxGeometry(1, 1, 1), new BasicMaterial({ color: '#4f8cff' }));
 cube.position.z = -5;
 engine.scene.add(cube);
 engine.start(({ deltaTime }) => {
