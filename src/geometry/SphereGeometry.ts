@@ -19,7 +19,10 @@ export class SphereGeometry extends BufferGeometry {
           const nz = Math.sin(t) * Math.sin(u * Math.PI * 2);
           return { position: [radius * nx, radius * ny, radius * nz], normal: [nx, ny, nz] };
         };
-        const a = point(u0, t0), b = point(u1, t0), c = point(u1, t1), d = point(u0, t1);
+        const a = point(u0, t0),
+          b = point(u1, t0),
+          c = point(u1, t1),
+          d = point(u0, t1);
         for (const vertex of [a, b, c, a, c, d]) {
           positions.push(...vertex.position);
           normals.push(...vertex.normal);

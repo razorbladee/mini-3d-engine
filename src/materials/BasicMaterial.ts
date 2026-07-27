@@ -1,7 +1,41 @@
 import { Texture2D } from '../rendering/Texture2D';
 
 export class BasicMaterial {
-  color: Float32Array; opacity: number; transparent: boolean; wireframe: boolean; doubleSided: boolean; map?: Texture2D;
-  constructor(options: { color?: string; opacity?: number; transparent?: boolean; wireframe?: boolean; doubleSided?: boolean; map?: Texture2D } = {}) { this.color = BasicMaterial.parseColor(options.color || '#4f8cff'); this.opacity = options.opacity ?? 1; this.transparent = options.transparent ?? this.opacity < 1; this.wireframe = options.wireframe ?? false; this.doubleSided = options.doubleSided ?? false; this.map = options.map; this.color[3] = this.opacity; }
-  static parseColor(value: string) { const h = value.replace('#', ''); const n = parseInt(h.length === 3 ? h.split('').map((c) => c + c).join('') : h, 16); return new Float32Array([(n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255, 1]); }
+  color: Float32Array;
+  opacity: number;
+  transparent: boolean;
+  wireframe: boolean;
+  doubleSided: boolean;
+  map?: Texture2D;
+  constructor(
+    options: {
+      color?: string;
+      opacity?: number;
+      transparent?: boolean;
+      wireframe?: boolean;
+      doubleSided?: boolean;
+      map?: Texture2D;
+    } = {},
+  ) {
+    this.color = BasicMaterial.parseColor(options.color || '#4f8cff');
+    this.opacity = options.opacity ?? 1;
+    this.transparent = options.transparent ?? this.opacity < 1;
+    this.wireframe = options.wireframe ?? false;
+    this.doubleSided = options.doubleSided ?? false;
+    this.map = options.map;
+    this.color[3] = this.opacity;
+  }
+  static parseColor(value: string) {
+    const h = value.replace('#', '');
+    const n = parseInt(
+      h.length === 3
+        ? h
+            .split('')
+            .map((c) => c + c)
+            .join('')
+        : h,
+      16,
+    );
+    return new Float32Array([((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255, 1]);
+  }
 }

@@ -4,7 +4,9 @@ import { Vector3 } from './Vector3';
 export class Matrix4 {
   elements = new Float32Array(16);
 
-  constructor() { this.identity(); }
+  constructor() {
+    this.identity();
+  }
 
   identity() {
     const e = this.elements;
@@ -19,10 +21,11 @@ export class Matrix4 {
     const result = new Float32Array(16);
     for (let column = 0; column < 4; column += 1) {
       for (let row = 0; row < 4; row += 1) {
-        result[column * 4 + row] = a[row] * b[column * 4]
-          + a[4 + row] * b[column * 4 + 1]
-          + a[8 + row] * b[column * 4 + 2]
-          + a[12 + row] * b[column * 4 + 3];
+        result[column * 4 + row] =
+          a[row] * b[column * 4] +
+          a[4 + row] * b[column * 4 + 1] +
+          a[8 + row] * b[column * 4 + 2] +
+          a[12 + row] * b[column * 4 + 3];
       }
     }
     this.elements = result;
@@ -30,10 +33,15 @@ export class Matrix4 {
   }
 
   compose(position: Vector3, scale: Vector3, rotation = new Euler()) {
-    const x = rotation.x, y = rotation.y, z = rotation.z;
-    const a = Math.cos(x), b = Math.sin(x);
-    const c = Math.cos(y), d = Math.sin(y);
-    const e = Math.cos(z), f = Math.sin(z);
+    const x = rotation.x,
+      y = rotation.y,
+      z = rotation.z;
+    const a = Math.cos(x),
+      b = Math.sin(x);
+    const c = Math.cos(y),
+      d = Math.sin(y);
+    const e = Math.cos(z),
+      f = Math.sin(z);
     const values = this.elements;
 
     values[0] = c * e * scale.x;

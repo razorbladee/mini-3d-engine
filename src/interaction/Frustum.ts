@@ -1,2 +1,34 @@
-import { Camera } from '../cameras/Camera'; import { Vector3 } from '../math/Vector3'; import { SphereBounds } from './Bounds';
-export class Frustum { private planes:number[][]=[]; setFromCamera(camera:Camera){const p=camera.projectionMatrix,v=camera.viewMatrix.elements;const m=new Float32Array(16);for(let c=0;c<4;c++)for(let r=0;r<4;r++)m[c*4+r]=p[c*4]*v[r]+p[c*4+1]*v[4+r]+p[c*4+2]*v[8+r]+p[c*4+3]*v[12+r];this.planes=[[-1,0,0,m[3]+m[0]],[1,0,0,m[3]-m[0]],[0,-1,0,m[3]+m[1]],[0,1,0,m[3]-m[1]],[0,0,-1,m[3]+m[2]],[0,0,1,m[3]-m[2]]].map(p=>{const l=Math.hypot(p[0],p[1],p[2])||1;return p.map(x=>x/l)});return this} intersectsSphere(bounds:SphereBounds){return this.planes.every(p=>p[0]*bounds.center.x+p[1]*bounds.center.y+p[2]*bounds.center.z+p[3]>=-bounds.radius)} intersectsPoint(point:Vector3){return this.planes.every(p=>p[0]*point.x+p[1]*point.y+p[2]*point.z+p[3]>=0)} }
+import { Camera } from '../cameras/Camera';
+import { Vector3 } from '../math/Vector3';
+import { SphereBounds } from './Bounds';
+export class Frustum {
+  private planes: number[][] = [];
+  setFromCamera(camera: Camera) {
+    const p = camera.projectionMatrix,
+      v = camera.viewMatrix.elements;
+    const m = new Float32Array(16);
+    for (let c = 0; c < 4; c++)
+      for (let r = 0; r < 4; r++)
+        m[c * 4 + r] = p[c * 4] * v[r] + p[c * 4 + 1] * v[4 + r] + p[c * 4 + 2] * v[8 + r] + p[c * 4 + 3] * v[12 + r];
+    this.planes = [
+      [-1, 0, 0, m[3] + m[0]],
+      [1, 0, 0, m[3] - m[0]],
+      [0, -1, 0, m[3] + m[1]],
+      [0, 1, 0, m[3] - m[1]],
+      [0, 0, -1, m[3] + m[2]],
+      [0, 0, 1, m[3] - m[2]],
+    ].map((p) => {
+      const l = Math.hypot(p[0], p[1], p[2]) || 1;
+      return p.map((x) => x / l);
+    });
+    return this;
+  }
+  intersectsSphere(bounds: SphereBounds) {
+    return this.planes.every(
+      (p) => p[0] * bounds.center.x + p[1] * bounds.center.y + p[2] * bounds.center.z + p[3] >= -bounds.radius,
+    );
+  }
+  intersectsPoint(point: Vector3) {
+    return this.planes.every((p) => p[0] * point.x + p[1] * point.y + p[2] * point.z + p[3] >= 0);
+  }
+}

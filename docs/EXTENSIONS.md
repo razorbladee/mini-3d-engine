@@ -22,10 +22,15 @@ scene.add(model.scene);
 ## AnimationMixer
 
 ```ts
-const clip = new AnimationClip('pulse', 1, [{
-  keyframes: [{ time: 0, value: 0 }, { time: 1, value: 1 }],
-  apply: (value) => mesh.scale.setScalar?.(value)
-}]);
+const clip = new AnimationClip('pulse', 1, [
+  {
+    keyframes: [
+      { time: 0, value: 0 },
+      { time: 1, value: 1 },
+    ],
+    apply: (value) => mesh.scale.setScalar?.(value),
+  },
+]);
 const mixer = new AnimationMixer().play(clip);
 engine.start(({ deltaTime }) => mixer.update(deltaTime));
 ```

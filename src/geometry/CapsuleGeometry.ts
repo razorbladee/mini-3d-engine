@@ -1,4 +1,42 @@
 import { BufferGeometry } from './BufferGeometry';
 export class CapsuleGeometry extends BufferGeometry {
-  constructor(radius=.5,length=1.5,segments=20,rings=8){if(radius<=0||length<0)throw new Error('CapsuleGeometry dimensions must be valid');if(segments<3||rings<1)throw new Error('CapsuleGeometry needs valid segments and rings');const p:number[]=[];const n:number[]=[];const profile:{y:number;r:number;ny:number}[]=[];for(let i=0;i<=rings;i++){const t=i/rings*Math.PI/2;profile.push({y:length/2+radius*Math.cos(t),r:radius*Math.sin(t),ny:Math.cos(t)})}if(length>0)profile.push({y:-length/2,r:radius,ny:0});for(let i=1;i<=rings;i++){const t=i/rings*Math.PI/2;profile.push({y:-length/2-radius*Math.sin(t),r:radius*Math.cos(t),ny:-Math.sin(t)})}const v=(q:{y:number;r:number;ny:number},a:number)=>{const ca=Math.cos(a),sa=Math.sin(a),h=Math.sqrt(Math.max(0,1-q.ny*q.ny));return{p:[q.r*ca,q.y,q.r*sa],n:[h*ca,q.ny,h*sa]}};for(let row=0;row<profile.length-1;row++)for(let col=0;col<segments;col++){const a0=col/segments*Math.PI*2,a1=(col+1)/segments*Math.PI*2;for(const x of[v(profile[row],a0),v(profile[row+1],a1),v(profile[row],a1),v(profile[row],a0),v(profile[row+1],a0),v(profile[row+1],a1)]){p.push(...x.p);n.push(...x.n)}}super(p,n)}
+  constructor(radius = 0.5, length = 1.5, segments = 20, rings = 8) {
+    if (radius <= 0 || length < 0) throw new Error('CapsuleGeometry dimensions must be valid');
+    if (segments < 3 || rings < 1) throw new Error('CapsuleGeometry needs valid segments and rings');
+    const p: number[] = [];
+    const n: number[] = [];
+    const profile: { y: number; r: number; ny: number }[] = [];
+    for (let i = 0; i <= rings; i++) {
+      const t = ((i / rings) * Math.PI) / 2;
+      profile.push({ y: length / 2 + radius * Math.cos(t), r: radius * Math.sin(t), ny: Math.cos(t) });
+    }
+    if (length > 0) profile.push({ y: -length / 2, r: radius, ny: 0 });
+    for (let i = 1; i <= rings; i++) {
+      const t = ((i / rings) * Math.PI) / 2;
+      profile.push({ y: -length / 2 - radius * Math.sin(t), r: radius * Math.cos(t), ny: -Math.sin(t) });
+    }
+    const v = (q: { y: number; r: number; ny: number }, a: number) => {
+      const ca = Math.cos(a),
+        sa = Math.sin(a),
+        h = Math.sqrt(Math.max(0, 1 - q.ny * q.ny));
+      return { p: [q.r * ca, q.y, q.r * sa], n: [h * ca, q.ny, h * sa] };
+    };
+    for (let row = 0; row < profile.length - 1; row++)
+      for (let col = 0; col < segments; col++) {
+        const a0 = (col / segments) * Math.PI * 2,
+          a1 = ((col + 1) / segments) * Math.PI * 2;
+        for (const x of [
+          v(profile[row], a0),
+          v(profile[row + 1], a1),
+          v(profile[row], a1),
+          v(profile[row], a0),
+          v(profile[row + 1], a0),
+          v(profile[row + 1], a1),
+        ]) {
+          p.push(...x.p);
+          n.push(...x.n);
+        }
+      }
+    super(p, n);
+  }
 }

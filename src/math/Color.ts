@@ -1,1 +1,26 @@
-export class Color { constructor(public r=1,public g=1,public b=1) {} setHex(value:string){const h=value.replace('#','');const n=parseInt(h.length===3?h.split('').map(c=>c+c).join(''):h,16);this.r=((n>>16)&255)/255;this.g=((n>>8)&255)/255;this.b=(n&255)/255;return this} toArray(){return [this.r,this.g,this.b]} }
+export class Color {
+  constructor(
+    public r = 1,
+    public g = 1,
+    public b = 1,
+  ) {}
+  setHex(value: string) {
+    const h = value.replace('#', '');
+    const n = parseInt(
+      h.length === 3
+        ? h
+            .split('')
+            .map((c) => c + c)
+            .join('')
+        : h,
+      16,
+    );
+    this.r = ((n >> 16) & 255) / 255;
+    this.g = ((n >> 8) & 255) / 255;
+    this.b = (n & 255) / 255;
+    return this;
+  }
+  toArray() {
+    return [this.r, this.g, this.b];
+  }
+}

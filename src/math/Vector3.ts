@@ -1,1 +1,43 @@
-export class Vector3 { constructor(public x=0,public y=0,public z=0){} set(x:number,y:number,z:number){this.x=x;this.y=y;this.z=z;return this} clone(){return new Vector3(this.x,this.y,this.z)} copy(v:Vector3){return this.set(v.x,v.y,v.z)} add(v:Vector3){this.x+=v.x;this.y+=v.y;this.z+=v.z;return this} sub(v:Vector3){this.x-=v.x;this.y-=v.y;this.z-=v.z;return this} multiplyScalar(s:number){this.x*=s;this.y*=s;this.z*=s;return this} length(){return Math.hypot(this.x,this.y,this.z)} normalize(){return this.multiplyScalar(1/(this.length()||1))} }
+export class Vector3 {
+  constructor(
+    public x = 0,
+    public y = 0,
+    public z = 0,
+  ) {}
+  set(x: number, y: number, z: number) {
+    this.x = x;
+    this.y = y;
+    this.z = z;
+    return this;
+  }
+  clone() {
+    return new Vector3(this.x, this.y, this.z);
+  }
+  copy(v: Vector3) {
+    return this.set(v.x, v.y, v.z);
+  }
+  add(v: Vector3) {
+    this.x += v.x;
+    this.y += v.y;
+    this.z += v.z;
+    return this;
+  }
+  sub(v: Vector3) {
+    this.x -= v.x;
+    this.y -= v.y;
+    this.z -= v.z;
+    return this;
+  }
+  multiplyScalar(s: number) {
+    this.x *= s;
+    this.y *= s;
+    this.z *= s;
+    return this;
+  }
+  length() {
+    return Math.hypot(this.x, this.y, this.z);
+  }
+  normalize() {
+    return this.multiplyScalar(1 / (this.length() || 1));
+  }
+}

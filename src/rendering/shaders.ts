@@ -1,10 +1,10 @@
-export const vertexSource=`#version 300 es
+export const vertexSource = `#version 300 es
 in vec3 position;in vec3 normal;in vec2 uv;uniform mat4 uModel;uniform mat4 uView;uniform mat4 uProjection;uniform mat3 uNormalMatrix;out vec3 vWorldPosition;out vec3 vWorldNormal;out vec2 vUv;
 void main(){vec4 worldPosition=uModel*vec4(position,1.0);vWorldPosition=worldPosition.xyz;vWorldNormal=normalize(uNormalMatrix*normal);vUv=uv;gl_Position=uProjection*uView*worldPosition;}`;
-export const basicFragmentSource=`#version 300 es
+export const basicFragmentSource = `#version 300 es
 precision highp float;uniform vec4 uColor;uniform sampler2D uMap;uniform int uHasMap;in vec2 vUv;out vec4 outColor;
 void main(){vec4 color=uColor;if(uHasMap==1)color*=texture(uMap,vUv);outColor=color;}`;
-export const litFragmentSource=`#version 300 es
+export const litFragmentSource = `#version 300 es
 precision highp float;
 #define MAX_LIGHTS 4
 uniform vec4 uColor;uniform sampler2D uMap;uniform int uHasMap;uniform float uRoughness;uniform float uMetalness;uniform vec3 uCameraPosition;uniform vec3 uAmbientColor;uniform int uDirectionalCount;uniform vec3 uDirectionalColor[MAX_LIGHTS];uniform vec3 uDirectionalDirection[MAX_LIGHTS];uniform float uDirectionalIntensity[MAX_LIGHTS];uniform int uPointCount;uniform vec3 uPointColor[MAX_LIGHTS];uniform vec3 uPointPosition[MAX_LIGHTS];uniform float uPointIntensity[MAX_LIGHTS];uniform float uPointDistance[MAX_LIGHTS];in vec3 vWorldPosition;in vec3 vWorldNormal;in vec2 vUv;out vec4 outColor;

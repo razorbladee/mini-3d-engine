@@ -8,14 +8,14 @@
 
 ## 0. Сводка состояния
 
-| Проверка | Команда | Результат |
-|---|---|---|
-| Сборка | `npm run build` | ❌ **падает**, 2 ошибки TS2556 в `GLTFLoader.ts` |
-| Тесты | `npm run test` | ❌ **6 из 41 падают**, 6 из 13 файлов красные |
-| Type-check тестов | — | ❌ `tsconfig.json` не включает `tests/`, они никогда не проверяются |
-| Линтер | — | ❌ отсутствует, хотя требуется `MVP-SPEC.md` §2 |
-| CI | — | ❌ отсутствует |
-| `.gitignore` | — | ❌ отсутствует, `node_modules/` и `dist/` видны в `git status` |
+| Проверка          | Команда         | Результат                                                           |
+| ----------------- | --------------- | ------------------------------------------------------------------- |
+| Сборка            | `npm run build` | ❌ **падает**, 2 ошибки TS2556 в `GLTFLoader.ts`                    |
+| Тесты             | `npm run test`  | ❌ **6 из 41 падают**, 6 из 13 файлов красные                       |
+| Type-check тестов | —               | ❌ `tsconfig.json` не включает `tests/`, они никогда не проверяются |
+| Линтер            | —               | ❌ отсутствует, хотя требуется `MVP-SPEC.md` §2                     |
+| CI                | —               | ❌ отсутствует                                                      |
+| `.gitignore`      | —               | ❌ отсутствует, `node_modules/` и `dist/` видны в `git status`      |
 
 Итог: **`main` находится в нерабочем состоянии** — проект не собирается. Помимо этого найдено
 9 критических дефектов рантайма (неверная математика, тихо отключённые фичи, утечки GPU-памяти),
@@ -76,14 +76,14 @@ multiple primitives` падает именно по этой причине. И�
 
 ### P0-3. Красные тесты (6 штук)
 
-| Тест | Причина | Что чинить |
-|---|---|---|
-| `loader.test.ts > finds orphan mesh nodes` | P0-2 | код |
-| `geometry-regressions.test.ts > has no degenerate triangles` | P1-3 | код |
-| `roadmap.test.ts > tests frustum points` | P1-4 | код |
-| `showcase.test.ts > keeps all working example families visible` | ожидает 17, в реестре 21 | тест (T-4) |
-| `shaders.test.ts > keeps GLSL preprocessor directives…` | регэксп `/;\s+#/` ловит валидный `;\nprecision…\n#define` | тест (T-5) |
-| `examples.test.ts > converts client coordinates…` | `toEqual({x:0,y:0})` против `{x:+0,y:-0}` | код+тест (T-6) |
+| Тест                                                            | Причина                                                   | Что чинить     |
+| --------------------------------------------------------------- | --------------------------------------------------------- | -------------- |
+| `loader.test.ts > finds orphan mesh nodes`                      | P0-2                                                      | код            |
+| `geometry-regressions.test.ts > has no degenerate triangles`    | P1-3                                                      | код            |
+| `roadmap.test.ts > tests frustum points`                        | P1-4                                                      | код            |
+| `showcase.test.ts > keeps all working example families visible` | ожидает 17, в реестре 21                                  | тест (T-4)     |
+| `shaders.test.ts > keeps GLSL preprocessor directives…`         | регэксп `/;\s+#/` ловит валидный `;\nprecision…\n#define` | тест (T-5)     |
+| `examples.test.ts > converts client coordinates…`               | `toEqual({x:0,y:0})` против `{x:+0,y:-0}`                 | код+тест (T-6) |
 
 **Критерий приёмки.** `npm run test` — 0 падений; ни один тест не «исправлен» ослаблением
 проверки там, где виноват код (см. таблицу — исправление в колонке «что чинить»).
@@ -99,7 +99,7 @@ multiple primitives` падает именно по этой причине. И�
 Имена uniform-локаций собираются эвристикой по подстроке:
 
 ```ts
-`u${Key}${key.includes('Color')||key.includes('Direction')||key.includes('Intensity') ? '[0]' : ''}`
+`u${Key}${key.includes('Color') || key.includes('Direction') || key.includes('Intensity') ? '[0]' : ''}`;
 ```
 
 Для `ambientColor` эвристика выдаёт `uAmbientColor[0]`, но в шейдере это **не массив**:
@@ -144,15 +144,16 @@ const LIT_UNIFORMS = {
 **Замер.** При `azimuth = 0.9`, `elevation = 0.6` угол между forward-вектором камеры и
 направлением на цель:
 
-| Порядок | Ошибка |
-|---|---|
-| XYZ (текущий) | **14.576°** |
-| YXZ (правильный) | 0.000° |
+| Порядок          | Ошибка      |
+| ---------------- | ----------- |
+| XYZ (текущий)    | **14.576°** |
+| YXZ (правильный) | 0.000°      |
 
 Цель уезжает из центра кадра при любом одновременно ненулевом azimuth и elevation, что
 затрагивает **все** 3D-сцены витрины.
 
 **Требование.**
+
 1. `Euler.order` перестаёт быть декоративной строкой: `Matrix4.compose` обязан её учитывать.
    Минимум — поддержать `XYZ` и `YXZ`; предпочтительно — все шесть порядков.
 2. Либо (предпочтительный вариант) — реализовать `Camera.lookAt(target, up)`, которого требует
@@ -170,13 +171,13 @@ forward-вектором камеры и вектором «камера → tar
 
 Инструментированный обход (сверка знака `cross(b-a, c-a)` с записанной нормалью вершины):
 
-| Примитив | Треугольников | Вывернутых | Вырожденных |
-|---|---|---|---|
-| Box | 12 | 0 | 0 |
-| Sphere | 256 | 0 | **32** |
-| Cylinder | 96 | 0 | 0 |
-| Torus | 1024 | 0 | 0 |
-| **Capsule** | 680 | **640** | **40** |
+| Примитив    | Треугольников | Вывернутых | Вырожденных |
+| ----------- | ------------- | ---------- | ----------- |
+| Box         | 12            | 0          | 0           |
+| Sphere      | 256           | 0          | **32**      |
+| Cylinder    | 96            | 0          | 0           |
+| Torus       | 1024          | 0          | 0           |
+| **Capsule** | 680           | **640**    | **40**      |
 
 При `gl.enable(CULL_FACE)` + `frontFace(CCW)` капсула отбраковывается по граням — то есть
 `advanced-primitives` сцена показывает вывернутую наизнанку/невидимую капсулу.
@@ -185,6 +186,7 @@ forward-вектором камеры и вектором «камера → tar
 Вырожденные треугольники — вырождение колец на полюсах (`r = 0`), там же у сферы.
 
 **Требование.**
+
 1. Исправить намотку капсулы на CCW.
 2. Не эмитить треугольники с нулевой площадью на полюсах (полярные кольца дают треугольники,
    а не квады) — и для `CapsuleGeometry`, и для `SphereGeometry`.
@@ -206,11 +208,11 @@ forward-вектором камеры и вектором «камера → tar
 
 **Замер.** Камера в `(0,0,5)`, fov 60, near 0.1, far 100:
 
-| Точка | Ожидание | Факт |
-|---|---|---|
-| `(0,0,0)` — прямо перед камерой | `true` | **`false`** |
-| `(0,0,50)` — позади | `false` | `false` |
-| `(500,0,0)` — далеко вне | `false` | `false` |
+| Точка                           | Ожидание | Факт        |
+| ------------------------------- | -------- | ----------- |
+| `(0,0,0)` — прямо перед камерой | `true`   | **`false`** |
+| `(0,0,50)` — позади             | `false`  | `false`     |
+| `(500,0,0)` — далеко вне        | `false`  | `false`     |
 
 Метод не возвращает `true` никогда — то есть culling на его основе скрыл бы всю сцену.
 Тест `roadmap.test.ts > tests frustum points` красный и фиксирует именно это.
@@ -275,6 +277,7 @@ dispose() { this.gl.deleteProgram(this.basic.program); this.gl.deleteProgram(thi
 WebGL-тип в слой геометрии.
 
 **Требование.**
+
 1. Ввести `ResourceCache` (владелец GPU-ресурсов, привязанный к контексту): единственный источник
    истины, `WeakMap<BufferGeometry, GeometryBuffers>` + `WeakMap<Texture2D, WebGLTexture>`.
 2. Убрать поля `gpuBuffer`/`normalBuffer`/`uvBuffer` и `dispose(gl)` из `BufferGeometry`.
@@ -327,6 +330,7 @@ PlaneGeometry(2,2).uvs = 0.00,0.00, 1.00,0.00, 1.00,0.00, 0.00,0.00, 1.00,0.00, 
 полосу, `brick-texture` (куб) — растянутый по граням кирпич.
 
 **Требование.**
+
 1. `PlaneGeometry` и `BoxGeometry` объявляют собственные корректные UV (per-face 0..1),
    а не полагаются на фолбэк.
 2. Фолбэк `computePlanarUvs` выбирает плоскость проекции по наименьшей протяжённости bbox
@@ -350,6 +354,7 @@ PlaneGeometry(2,2).uvs = 0.00,0.00, 1.00,0.00, 1.00,0.00, 0.00,0.00, 1.00,0.00, 
 каждый кадр — мусор в hot loop.
 
 **Требование.**
+
 1. `Engine` владеет циклом кадра и обязан завершать кадр ввода: либо `Engine` принимает
    `InputMap` и сам зовёт `endFrame()`, либо `InputMap` подписывается на событие конца кадра.
 2. `bind()` возвращает стабильный закэшированный `InputAction`-объект (по имени действия).
@@ -366,12 +371,13 @@ PlaneGeometry(2,2).uvs = 0.00,0.00, 1.00,0.00, 1.00,0.00, 0.00,0.00, 1.00,0.00, 
 
 `ARCHITECTURE.md` и `API.md` утверждают, что `Renderer` — это backend-контракт. Фактически:
 
-* `WebGLRenderer` **не пишет** `implements Renderer`;
-* `Engine.renderer` типизирован конкретным классом `WebGLRenderer`, а не интерфейсом;
-* `Engine` сам вызывает `new WebGLRenderer(canvas)` — подставить другой backend нельзя;
-* `Engine.resize()` делает `instanceof PerspectiveCamera` — камера-специфичная логика в ядре.
+- `WebGLRenderer` **не пишет** `implements Renderer`;
+- `Engine.renderer` типизирован конкретным классом `WebGLRenderer`, а не интерфейсом;
+- `Engine` сам вызывает `new WebGLRenderer(canvas)` — подставить другой backend нельзя;
+- `Engine.resize()` делает `instanceof PerspectiveCamera` — камера-специфичная логика в ядре.
 
 **Требование.**
+
 1. `WebGLRenderer implements Renderer`.
 2. `Engine` принимает `renderer?: Renderer` либо фабрику `createRenderer(canvas)`; по умолчанию — WebGL2.
 3. Логику пересчёта проекции при resize перенести в камеру: `Camera.setViewportSize(w, h)`
@@ -381,18 +387,18 @@ PlaneGeometry(2,2).uvs = 0.00,0.00, 1.00,0.00, 1.00,0.00, 0.00,0.00, 1.00,0.00, 
 
 ### P2-2. Публичный API не соответствует `MVP-SPEC.md`
 
-| Требование MVP | Статус | Файл |
-|---|---|---|
-| §4.1 «интерполяция, трансформации, локальные → мировые» | ❌ у `Vector3` нет `dot`, `cross`, `lerp`, `distanceTo`, `applyMatrix4`, `setScalar` | `math/Vector3.ts` |
-| §4.1 `Quaternion` | ❌ только `set` + `normalize`; нет `setFromEuler`, `setFromAxisAngle`, `slerp`, `multiply` | `math/Quaternion.ts` |
-| §4.1 `Color` | ⚠️ есть, но движком не используется — рендерер и материалы парсят hex сами | `math/Color.ts` |
-| §4.2 `Node.clear()`, quaternion-поворот | ❌ отсутствуют | `core/Node.ts` |
-| §4.3 индексы в геометрии, `BufferAttribute` | ❌ `BufferGeometry` хранит три голых `Float32Array`; `BufferAttribute` объявлен, экспортирован и **нигде не используется** | `geometry/` |
-| §4.4 `wireframe`, alpha test | ❌ `wireframe` принимается материалом и **молча игнорируется** рендерером; alpha test отсутствует | `materials/`, `rendering/` |
-| §4.6 `Camera.lookAt` | ❌ отсутствует | `cameras/Camera.ts` |
-| §4.9 «обработка переключения вкладок» | ❌ нет обработчика `visibilitychange`; после возврата на вкладку первый кадр обрезается клампом 0.1 с, `elapsed` уезжает | `core/Engine.ts` |
-| §5 «npm-пакет с ESM-сборкой», tree-shaking | ❌ `private: true`, нет `main`/`module`/`types`/`exports`, нет сборки библиотеки — собирается только демо-страница | `package.json` |
-| §2 ESLint + Prettier | ❌ отсутствуют | — |
+| Требование MVP                                          | Статус                                                                                                                     | Файл                       |
+| ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | -------------------------- |
+| §4.1 «интерполяция, трансформации, локальные → мировые» | ❌ у `Vector3` нет `dot`, `cross`, `lerp`, `distanceTo`, `applyMatrix4`, `setScalar`                                       | `math/Vector3.ts`          |
+| §4.1 `Quaternion`                                       | ❌ только `set` + `normalize`; нет `setFromEuler`, `setFromAxisAngle`, `slerp`, `multiply`                                 | `math/Quaternion.ts`       |
+| §4.1 `Color`                                            | ⚠️ есть, но движком не используется — рендерер и материалы парсят hex сами                                                 | `math/Color.ts`            |
+| §4.2 `Node.clear()`, quaternion-поворот                 | ❌ отсутствуют                                                                                                             | `core/Node.ts`             |
+| §4.3 индексы в геометрии, `BufferAttribute`             | ❌ `BufferGeometry` хранит три голых `Float32Array`; `BufferAttribute` объявлен, экспортирован и **нигде не используется** | `geometry/`                |
+| §4.4 `wireframe`, alpha test                            | ❌ `wireframe` принимается материалом и **молча игнорируется** рендерером; alpha test отсутствует                          | `materials/`, `rendering/` |
+| §4.6 `Camera.lookAt`                                    | ❌ отсутствует                                                                                                             | `cameras/Camera.ts`        |
+| §4.9 «обработка переключения вкладок»                   | ❌ нет обработчика `visibilitychange`; после возврата на вкладку первый кадр обрезается клампом 0.1 с, `elapsed` уезжает   | `core/Engine.ts`           |
+| §5 «npm-пакет с ESM-сборкой», tree-shaking              | ❌ `private: true`, нет `main`/`module`/`types`/`exports`, нет сборки библиотеки — собирается только демо-страница         | `package.json`             |
+| §2 ESLint + Prettier                                    | ❌ отсутствуют                                                                                                             | —                          |
 
 **Требование.** Либо реализовать пункты, либо явно вынести их в отдельный backlog-документ
 со статусом «сознательно отложено». Молчаливое расхождение кода и спецификации недопустимо —
@@ -432,17 +438,17 @@ PlaneGeometry(2,2).uvs = 0.00,0.00, 1.00,0.00, 1.00,0.00, 0.00,0.00, 1.00,0.00, 
 
 Все пункты — в коде, исполняемом **каждый кадр для каждого узла**:
 
-| Место | Проблема |
-|---|---|
-| `Node.updateWorldMatrix` | `parentMatrix.clone().multiply(...)` + `localMatrix.clone()` → 2 `Matrix4` (2 × `Float32Array(16)`) на узел на кадр |
-| `Matrix4.multiply` | создаёт новый `Float32Array(16)` и **подменяет** `this.elements` — рвёт внешние ссылки на буфер |
-| `Matrix4.invert` | то же самое |
-| `WebGLRenderer.render` | `normalMatrix()` создаёт `Float32Array(9)` на меш на кадр |
-| `WebGLRenderer.render` | `lights.directional.flatMap(...)` — 6 новых массивов на кадр |
-| `WebGLRenderer.collectLights` | парсинг hex-строки цвета для каждого источника **каждый кадр** |
-| `WebGLRenderer.render` | полный `scene.traverse` дважды за кадр (свет + меши) |
-| `SimplePhysics.step`, `ParticleSystem.update` | `gravity.clone().multiplyScalar()` на тело на шаг |
-| `showcase.ts` | `input.bind(...)` на кадр |
+| Место                                         | Проблема                                                                                                            |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `Node.updateWorldMatrix`                      | `parentMatrix.clone().multiply(...)` + `localMatrix.clone()` → 2 `Matrix4` (2 × `Float32Array(16)`) на узел на кадр |
+| `Matrix4.multiply`                            | создаёт новый `Float32Array(16)` и **подменяет** `this.elements` — рвёт внешние ссылки на буфер                     |
+| `Matrix4.invert`                              | то же самое                                                                                                         |
+| `WebGLRenderer.render`                        | `normalMatrix()` создаёт `Float32Array(9)` на меш на кадр                                                           |
+| `WebGLRenderer.render`                        | `lights.directional.flatMap(...)` — 6 новых массивов на кадр                                                        |
+| `WebGLRenderer.collectLights`                 | парсинг hex-строки цвета для каждого источника **каждый кадр**                                                      |
+| `WebGLRenderer.render`                        | полный `scene.traverse` дважды за кадр (свет + меши)                                                                |
+| `SimplePhysics.step`, `ParticleSystem.update` | `gravity.clone().multiplyScalar()` на тело на шаг                                                                   |
+| `showcase.ts`                                 | `input.bind(...)` на кадр                                                                                           |
 
 **Требование.** Мутирующие in-place варианты (`multiplyMatrices(a, b)`, `copy`, `premultiply`),
 переиспользуемые скратч-объекты, кэш распарсенного цвета в материале/свете, один обход сцены
@@ -458,8 +464,8 @@ PlaneGeometry(2,2).uvs = 0.00,0.00, 1.00,0.00, 1.00,0.00, 0.00,0.00, 1.00,0.00, 
 **Файл:** `src/rendering/WebGLRenderer.ts`
 
 ```ts
-const az = a.worldMatrix.elements[14] - cameraWorld[14];  // разница мировых Z
-meshes.sort((a,b) => ad-bd || (ad ? bz-az : 0));
+const az = a.worldMatrix.elements[14] - cameraWorld[14]; // разница мировых Z
+meshes.sort((a, b) => ad - bd || (ad ? bz - az : 0));
 ```
 
 Используется разница **мировых Z-координат**, а не расстояние вдоль оси взгляда камеры.
@@ -488,10 +494,10 @@ meshes.sort((a,b) => ad-bd || (ad ? bz-az : 0));
 
 ### P2-8. `AssetManager`: `AbortSignal` и прогресс — фикция
 
-* Первый вызов кэширует промис вместе с сигналом; повторный вызов с **другим** сигналом получает
+- Первый вызов кэширует промис вместе с сигналом; повторный вызов с **другим** сигналом получает
   старый промис (проверено: возвращается закэшированное значение, новый signal игнорируется).
-* Отмена по сигналу нигде не обрабатывается — при abort промис остаётся в кэше.
-* `onProgress` сообщает ровно два синтетических события: `{loaded:0}` и `{loaded:1,total:1}`.
+- Отмена по сигналу нигде не обрабатывается — при abort промис остаётся в кэше.
+- `onProgress` сообщает ровно два синтетических события: `{loaded:0}` и `{loaded:1,total:1}`.
   Реального прогресса нет.
 
 **Требование.** Реф-каунтинг подписчиков на запись кэша, отмена загрузки только при обнулении
@@ -502,13 +508,13 @@ meshes.sort((a,b) => ad-bd || (ad ? bz-az : 0));
 
 ### P2-9. `Texture2D`: необработанные ошибки и глобальное состояние GL
 
-* `Texture2D.load` не ловит ошибку `image.decode()` → unhandled rejection при недоступном URL.
+- `Texture2D.load` не ловит ошибку `image.decode()` → unhandled rejection при недоступном URL.
   В showcase `image()` ловит `.catch`, а `procedural()` — нет.
-* `gl.pixelStorei(UNPACK_FLIP_Y_WEBGL, 1)` выставляется и **никогда не сбрасывается** — влияет
+- `gl.pixelStorei(UNPACK_FLIP_Y_WEBGL, 1)` выставляется и **никогда не сбрасывается** — влияет
   на все последующие загрузки текстур в этом контексте.
-* Нет мип-мапов, нет обработки NPOT, фильтр всегда `LINEAR`, wrap всегда `CLAMP_TO_EDGE`,
+- Нет мип-мапов, нет обработки NPOT, фильтр всегда `LINEAR`, wrap всегда `CLAMP_TO_EDGE`,
   настроить нельзя.
-* Кэш `WeakMap<gl, texture>` не инвалидируется при смене `image`.
+- Кэш `WeakMap<gl, texture>` не инвалидируется при смене `image`.
 
 **Требование.** Опции сэмплера в конструкторе, восстановление pixel-store после загрузки,
 понятная ошибка загрузки, генерация мип-мапов для POT-текстур, перенос владения текстурой в
@@ -522,20 +528,21 @@ meshes.sort((a,b) => ad-bd || (ad ? bz-az : 0));
 
 32 файла содержат строки длиннее 300 символов. Худшие:
 
-| Файл | Строк | Максимальная строка |
-|---|---|---|
-| `examples/showcase.ts` | 9 | **6403** символа |
-| `src/loaders/GLTFLoader.ts` | 3 | **5534** |
-| `src/rendering/WebGLRenderer.ts` | 9 | **3764** |
-| `examples/showcase-registry.ts` | 1 | 3681 |
-| `src/index.ts` | 1 | 1751 |
-| `tests/loader.test.ts` | 2 | 1106 |
+| Файл                             | Строк | Максимальная строка |
+| -------------------------------- | ----- | ------------------- |
+| `examples/showcase.ts`           | 9     | **6403** символа    |
+| `src/loaders/GLTFLoader.ts`      | 3     | **5534**            |
+| `src/rendering/WebGLRenderer.ts` | 9     | **3764**            |
+| `examples/showcase-registry.ts`  | 1     | 3681                |
+| `src/index.ts`                   | 1     | 1751                |
+| `tests/loader.test.ts`           | 2     | 1106                |
 
 Весь `WebGLRenderer.render` — одна строка. Весь `GLTFLoader` — три. Это делает невозможными
 code review, осмысленный `git blame`, точные стек-трейсы и указание строки в ошибках линтера.
 Именно в такой строке и прячутся P0-2 и P1-1.
 
 **Требование.**
+
 1. Подключить Prettier (`printWidth: 120`) и переформатировать репозиторий одним отдельным
    commit-ом «style: format», чтобы он не смешивался с содержательными правками.
 2. Подключить ESLint (`@typescript-eslint`) с правилами минимум:
@@ -570,19 +577,19 @@ GitHub Actions workflow на push/PR: `npm ci` → `typecheck` → `lint` → `t
 
 ### P3-4. Мёртвые и рассинхронизированные примеры
 
-* `examples/basic.ts` и `examples/editor.ts` не подключены ни к одному HTML-файлу
+- `examples/basic.ts` и `examples/editor.ts` не подключены ни к одному HTML-файлу
   (`index.html` грузит только `showcase.ts`) — они не собираются Vite и деградируют незаметно.
-* Реестр объявляет **21** сцену, `build()` в `showcase.ts` обрабатывает **18**. Идентификаторы
+- Реестр объявляет **21** сцену, `build()` в `showcase.ts` обрабатывает **18**. Идентификаторы
   `cameras`, `texture`, `postprocess` проваливаются в `canvasDemo()` — 2D-canvas с квадратом
   и кругом, не имеющий отношения к заявленным «Camera lab», «Texture decoder», «Post-process passes».
   Это прямо противоречит сообщению последнего коммита «route every showcase entry to its own scene».
-* В сайдбаре захардкожено «WebGL2 · 21 scenes».
-* `examples/editor.ts`: `field()` принимает `onchange`, который никогда не вызывается (мёртвый
+- В сайдбаре захардкожено «WebGL2 · 21 scenes».
+- `examples/editor.ts`: `field()` принимает `onchange`, который никогда не вызывается (мёртвый
   параметр); `bindFields()` вешает **4 отдельных** слушателя на `document`, каждый из которых
   обрабатывает все 4 поля → четырёхкратная обработка каждого события; поле выбора цвета
   захардкожено `#8b7cff` и ни на что не влияет; при переключении сцен слушатели не снимаются.
-* `showcase.ts`: `activeCanvas!.onclick` в сцене `raycasting` не снимается при уничтожении сцены.
-* Массовое использование `!` (non-null assertion) вместо проверок.
+- `showcase.ts`: `activeCanvas!.onclick` в сцене `raycasting` не снимается при уничтожении сцены.
+- Массовое использование `!` (non-null assertion) вместо проверок.
 
 **Требование.** Либо реализовать три недостающие сцены, либо убрать их из реестра.
 Число сцен в UI брать из `examples.length`. Добавить `examples/basic.html` и `examples/editor.html`
@@ -592,14 +599,14 @@ GitHub Actions workflow на push/PR: `npm ci` → `typecheck` → `lint` → `t
 
 ### P3-5. Документация описывает несуществующее поведение
 
-| Документ | Утверждение | Реальность |
-|---|---|---|
-| `ARCHITECTURE.md` | «Любая GPU resource имеет owner, cache и dispose path» | P1-6: буферы и текстуры не освобождаются |
-| `ARCHITECTURE.md` | «Renderer backends заменяемы» | P2-1: `Engine` жёстко привязан к `WebGLRenderer` |
-| `API.md` | «`Frustum` предоставляет visibility tests» | P1-4: не работает |
-| `API.md` / `README.md` | «Ambient, Directional, Point, Spot и Hemisphere lights» | P1-1 (ambient не доходит), P2-4 (spot фиктивен) |
-| `ROADMAP-TZ.md` | «`npm run build` и `npm run test` проходят» | оба падают |
-| `MVP-SPEC.md` §2 | ESLint, Prettier, npm-пакет | отсутствуют |
+| Документ               | Утверждение                                             | Реальность                                       |
+| ---------------------- | ------------------------------------------------------- | ------------------------------------------------ |
+| `ARCHITECTURE.md`      | «Любая GPU resource имеет owner, cache и dispose path»  | P1-6: буферы и текстуры не освобождаются         |
+| `ARCHITECTURE.md`      | «Renderer backends заменяемы»                           | P2-1: `Engine` жёстко привязан к `WebGLRenderer` |
+| `API.md`               | «`Frustum` предоставляет visibility tests»              | P1-4: не работает                                |
+| `API.md` / `README.md` | «Ambient, Directional, Point, Spot и Hemisphere lights» | P1-1 (ambient не доходит), P2-4 (spot фиктивен)  |
+| `ROADMAP-TZ.md`        | «`npm run build` и `npm run test` проходят»             | оба падают                                       |
+| `MVP-SPEC.md` §2       | ESLint, Prettier, npm-пакет                             | отсутствуют                                      |
 
 **Требование.** Привести документы в соответствие по факту исправлений. Ввести в CI шаг,
 проверяющий, что `npm run build` и `npm run test` зелёные, — «Definition of Done» из
@@ -617,11 +624,11 @@ GitHub Actions workflow на push/PR: `npm ci` → `typecheck` → `lint` → `t
 Файлы названы по этапам проекта, а не по модулям: `production-foundations.test.ts`,
 `roadmap.test.ts`, `renderer-regressions.test.ts`, `geometry-regressions.test.ts`. Следствия:
 
-* `PerformanceMetrics` проверяется в **двух** файлах (`production-foundations`, `renderer-regressions`);
-* `engine.test.ts` не содержит ни одного теста `Engine` — там камеры, геометрия, raycasting, свет и физика;
-* `gltf.test.ts` и `loader.test.ts` тестируют один класс, причём кейс «rejects empty scenes»
+- `PerformanceMetrics` проверяется в **двух** файлах (`production-foundations`, `renderer-regressions`);
+- `engine.test.ts` не содержит ни одного теста `Engine` — там камеры, геометрия, raycasting, свет и физика;
+- `gltf.test.ts` и `loader.test.ts` тестируют один класс, причём кейс «rejects empty scenes»
   **скопирован дословно** в оба файла;
-* найти тесты конкретного класса невозможно.
+- найти тесты конкретного класса невозможно.
 
 **Требование.** Зеркалить структуру `src/`: `tests/math/Matrix4.test.ts`, `tests/core/Node.test.ts`,
 `tests/rendering/WebGLRenderer.test.ts` и т. д. Слово «regression»/«roadmap» из имён убрать —
@@ -694,19 +701,19 @@ expect(source).not.toMatch(/;\s+#/);
 
 Не покрыто **ничем**:
 
-* `Engine` — жизненный цикл (`start`/`stop`/`dispose`), кламп `deltaTime`, повторный `start`,
+- `Engine` — жизненный цикл (`start`/`stop`/`dispose`), кламп `deltaTime`, повторный `start`,
   снятие слушателя resize, поведение при переключении вкладки;
-* `WebGLRenderer` — целиком (самый большой и самый багованный модуль);
-* `OrbitControls` — целиком (баг P1-2);
-* `Texture2D` — целиком;
-* `Matrix4.multiply` против эталонного column-major умножения (проверено вручную: расхождение
+- `WebGLRenderer` — целиком (самый большой и самый багованный модуль);
+- `OrbitControls` — целиком (баг P1-2);
+- `Texture2D` — целиком;
+- `Matrix4.multiply` против эталонного column-major умножения (проверено вручную: расхождение
   1.49e-7 — реализация верна, но не зафиксирована тестом);
-* `Node.remove`, `traverse` порядок, повторное добавление узла к другому родителю;
-* `Frustum` — только один тест, и тот красный;
-* `PostProcess` — цепочка данных (баг P1-7);
-* `InputMap` — обработка реальных событий (баг P1-9);
-* `SimplePhysics` — соответствие `PhysicsAdapter`;
-* `GLTFLoader` — GLB с BIN-чанком, interleaved `byteStride`, аксессоры `componentType`
+- `Node.remove`, `traverse` порядок, повторное добавление узла к другому родителю;
+- `Frustum` — только один тест, и тот красный;
+- `PostProcess` — цепочка данных (баг P1-7);
+- `InputMap` — обработка реальных событий (баг P1-9);
+- `SimplePhysics` — соответствие `PhysicsAdapter`;
+- `GLTFLoader` — GLB с BIN-чанком, interleaved `byteStride`, аксессоры `componentType`
   5121/5123/5125, узлы с `matrix`, вложенная иерархия, fallback `glTF-Binary` → `glTF`.
 
 **Требование.** Довести до ≥80% покрытия по строкам для `src/math`, `src/core`, `src/geometry`,
@@ -730,16 +737,16 @@ expect(source).not.toMatch(/;\s+#/);
 
 Порядок обязателен: каждый следующий этап опирается на зелёный предыдущий.
 
-| Этап | Содержание | Готовность |
-|---|---|---|
-| **0. Разблокировка** | P0-1, P0-2, `.gitignore`, коммит `package-lock.json`, `tests` в `tsconfig`, `vitest.config.ts` (jsdom) | `build` и `typecheck` зелёные |
-| **1. Инфраструктура** | P3-1 (Prettier + ESLint, отдельный commit «style»), P3-2 (CI) | CI зелёный на каждом PR |
-| **2. Тестовый фундамент** | T-1, T-3 (fakeGL), T-4, T-5, T-6, T-8; красные тесты, фиксирующие P1-1…P1-9 | все баги воспроизводятся тестом |
-| **3. Математика и transform** | P1-2 (порядок Эйлера + `lookAt`), P1-5 (кватернионы), P2-2 (Vector3/Quaternion/Node API) | тесты этапа 2 по математике зелёные |
-| **4. Геометрия** | P1-3 (намотка, вырожденные), P1-8 (UV), индексы и `BufferAttribute` | геометрические тесты зелёные |
-| **5. Рендер** | P1-1 (uniform-таблица), P1-6 (`ResourceCache`), P2-6 (сортировка), P2-1 (`implements Renderer`), P2-5 (аллокации) | тесты на fakeGL зелёные |
-| **6. Подсистемы** | P1-4 (Frustum), P1-7 (PostProcess), P1-9 (InputMap), P2-3, P2-7, P2-8, P2-9 | покрытие по T-7 достигнуто |
-| **7. Примеры и документация** | P3-4, P3-5, P2-4 (решение по SpotLight) | нет расхождений «доки ↔ код» |
+| Этап                          | Содержание                                                                                                        | Готовность                          |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
+| **0. Разблокировка**          | P0-1, P0-2, `.gitignore`, коммит `package-lock.json`, `tests` в `tsconfig`, `vitest.config.ts` (jsdom)            | `build` и `typecheck` зелёные       |
+| **1. Инфраструктура**         | P3-1 (Prettier + ESLint, отдельный commit «style»), P3-2 (CI)                                                     | CI зелёный на каждом PR             |
+| **2. Тестовый фундамент**     | T-1, T-3 (fakeGL), T-4, T-5, T-6, T-8; красные тесты, фиксирующие P1-1…P1-9                                       | все баги воспроизводятся тестом     |
+| **3. Математика и transform** | P1-2 (порядок Эйлера + `lookAt`), P1-5 (кватернионы), P2-2 (Vector3/Quaternion/Node API)                          | тесты этапа 2 по математике зелёные |
+| **4. Геометрия**              | P1-3 (намотка, вырожденные), P1-8 (UV), индексы и `BufferAttribute`                                               | геометрические тесты зелёные        |
+| **5. Рендер**                 | P1-1 (uniform-таблица), P1-6 (`ResourceCache`), P2-6 (сортировка), P2-1 (`implements Renderer`), P2-5 (аллокации) | тесты на fakeGL зелёные             |
+| **6. Подсистемы**             | P1-4 (Frustum), P1-7 (PostProcess), P1-9 (InputMap), P2-3, P2-7, P2-8, P2-9                                       | покрытие по T-7 достигнуто          |
+| **7. Примеры и документация** | P3-4, P3-5, P2-4 (решение по SpotLight)                                                                           | нет расхождений «доки ↔ код»       |
 
 ## 7. Definition of Done
 

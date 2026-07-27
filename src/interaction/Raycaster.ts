@@ -23,11 +23,11 @@ export class Raycaster {
     let localDirection: Vector3;
 
     if (camera instanceof PerspectiveCamera) {
-      const tangent = Math.tan(camera.fov * Math.PI / 360);
+      const tangent = Math.tan((camera.fov * Math.PI) / 360);
       localDirection = new Vector3(ndc.x * tangent * camera.aspect, ndc.y * tangent, -1).normalize();
     } else if (camera instanceof OrthographicCamera) {
-      const localX = camera.left + (ndc.x + 1) * (camera.right - camera.left) / 2;
-      const localY = camera.bottom + (ndc.y + 1) * (camera.top - camera.bottom) / 2;
+      const localX = camera.left + ((ndc.x + 1) * (camera.right - camera.left)) / 2;
+      const localY = camera.bottom + ((ndc.y + 1) * (camera.top - camera.bottom)) / 2;
       this.origin.x += world[0] * localX + world[4] * localY;
       this.origin.y += world[1] * localX + world[5] * localY;
       this.origin.z += world[2] * localX + world[6] * localY;
@@ -36,11 +36,13 @@ export class Raycaster {
       localDirection = new Vector3(0, 0, -1);
     }
 
-    this.direction.set(
-      world[0] * localDirection.x + world[4] * localDirection.y + world[8] * localDirection.z,
-      world[1] * localDirection.x + world[5] * localDirection.y + world[9] * localDirection.z,
-      world[2] * localDirection.x + world[6] * localDirection.y + world[10] * localDirection.z,
-    ).normalize();
+    this.direction
+      .set(
+        world[0] * localDirection.x + world[4] * localDirection.y + world[8] * localDirection.z,
+        world[1] * localDirection.x + world[5] * localDirection.y + world[9] * localDirection.z,
+        world[2] * localDirection.x + world[6] * localDirection.y + world[10] * localDirection.z,
+      )
+      .normalize();
     return this;
   }
 
