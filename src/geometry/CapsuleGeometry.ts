@@ -1,16 +1,4 @@
 import { BufferGeometry } from './BufferGeometry';
-
 export class CapsuleGeometry extends BufferGeometry {
-  constructor(radius = 0.5, length = 1.5, segments = 20, rings = 8) {
-    if (radius <= 0 || length < 0) throw new Error('CapsuleGeometry dimensions must be valid');
-    if (segments < 3 || rings < 1) throw new Error('CapsuleGeometry needs valid segments and rings');
-    const positions:number[]=[],normals:number[]=[];
-    const half=length/2;
-    const points:{p:number[];n:number[];u:number}[]=[];
-    for(let y=0;y<=rings;y+=1){const t=y/rings*Math.PI/2;points.push({p:[radius*Math.sin(t),half+radius*Math.cos(t),0],n:[Math.sin(t),Math.cos(t),0],u:y/rings*.25});}
-    for(let y=1;y<rings;y+=1){const t=y/rings*Math.PI/2;points.push({p:[radius*Math.sin(t),-half-radius*Math.cos(t),0],n:[Math.sin(t),-Math.cos(t),0],u:.75+y/rings*.25});}
-    const ring=(index:number,angle:number)=>{const q=points[index],ca=Math.cos(angle),sa=Math.sin(angle);return {p:[q.p[0]*ca,q.p[1],q.p[0]*sa],n:[q.n[0]*ca,q.n[1],q.n[0]*sa],u:index/(points.length-1)};};
-    for(let r=0;r<points.length-1;r+=1) for(let s=0;s<segments;s+=1){const a0=s/segments*Math.PI*2,a1=(s+1)/segments*Math.PI*2;for(const v of [ring(r,a0),ring(r,a1),ring(r+1,a1),ring(r,a0),ring(r+1,a1),ring(r+1,a0)]){positions.push(...v.p);normals.push(...v.n);}}
-    super(positions,normals);
-  }
+  constructor(radius=0.5,length=1.5,segments=20,rings=8){if(radius<=0||length<0)throw new Error('CapsuleGeometry dimensions must be valid');if(segments<3||rings<1)throw new Error('CapsuleGeometry needs valid segments and rings');const p:number[]=[];const n:number[]=[];const profile:{y:number;r:number}[]=[];for(let i=0;i<=rings;i++){const t=i/rings*Math.PI/2;profile.push({y:length/2+radius*Math.cos(t),r:radius*Math.sin(t)})}for(let i=1;i<=rings;i++){const t=i/rings*Math.PI/2;profile.push({y:length/2-(i===rings?0:0),r:radius});}for(let i=1;i<=rings;i++){const t=i/rings*Math.PI/2;profile.push({y:-length/2,r:radius})}for(let i=1;i<=rings;i++){const t=i/rings*Math.PI/2;profile.push({y:-length/2-radius*Math.sin(t),r:radius*Math.cos(t)})}const clean=profile.filter((v,i)=>i===0||Math.abs(v.y-profile[i-1].y)>1e-6);for(let row=0;row<clean.length-1;row++)for(let col=0;col<segments;col++){const a0=col/segments*Math.PI*2,a1=(col+1)/segments*Math.PI*2;const vertex=(q:{y:number;r:number},a:number)=>{const x=q.r*Math.cos(a),z=q.r*Math.sin(a);const ny=q.y>length/2?Math.cos(Math.atan2(q.r,q.y-length/2)):q.y<-length/2?-Math.cos(Math.atan2(q.r,-q.y-length/2)):0;const nx=q.y>length/2?Math.sin(Math.atan2(q.r,q.y-length/2))*Math.cos(a):q.y<-length/2?Math.sin(Math.atan2(q.r,-q.y-length/2))*Math.cos(a):Math.cos(a);const nz=q.y>length/2?Math.sin(Math.atan2(q.r,q.y-length/2))*Math.sin(a):q.y<-length/2?Math.sin(Math.atan2(q.r,-q.y-length/2))*Math.sin(a):Math.sin(a);return{p:[x,q.y,z],n:[nx,ny,nz]}};for(const v of [vertex(clean[row],a0),vertex(clean[row],a1),vertex(clean[row+1],a1),vertex(clean[row],a0),vertex(clean[row+1],a1),vertex(clean[row+1],a0)]){p.push(...v.p);n.push(...v.n)}}super(p,n)}
 }
