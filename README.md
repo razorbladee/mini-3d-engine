@@ -2,23 +2,13 @@
 
 Small TypeScript/WebGL2 library for interactive 3D scenes.
 
-## MVP technical specification
+## MVP status
 
-Goal: browser library with scene graph, cameras, meshes, basic materials, rendering, animation loop and first interaction primitives.
+The original MVP issues are implemented in `main`: math primitives, scene graph, camera system, WebGL2 renderer, buffer geometry, materials, lights, Engine lifecycle, raycasting/controls, demo, tests, and documentation.
 
-### Included
-- TypeScript strict mode, Vite, ESM
-- Vector3 and Matrix4 foundations
-- Node/Scene hierarchy and world transforms
-- PerspectiveCamera
-- WebGL2 renderer
-- BufferGeometry, Mesh, BoxGeometry
-- BasicMaterial and shader compilation
-- Engine lifecycle: start, stop, resize, dispose
-- working demo
+### Public surface
 
-### Deliberately deferred
-Textures, glTF loading, physics, post-processing, WebGPU backend, editor, ECS and advanced animation.
+`Vector2`, `Vector3`, `Vector4`, `Matrix4`, `Quaternion`, `Euler`, `Color`, `Node`, `Scene`, `Engine`, `Camera`, `PerspectiveCamera`, `OrthographicCamera`, `Mesh`, `BufferGeometry`, `BufferAttribute`, `BoxGeometry`, `PlaneGeometry`, `SphereGeometry`, `BasicMaterial`, `StandardMaterial`, `AmbientLight`, `DirectionalLight`, `PointLight`, `Raycaster`, `OrbitControls`, and `WebGLRenderer`.
 
 ## Run
 
@@ -26,17 +16,9 @@ Textures, glTF loading, physics, post-processing, WebGPU backend, editor, ECS an
 npm install
 npm run dev
 npm run build
+npm run test
 ```
 
-## API sketch
+## Scope
 
-```ts
-const engine = new Engine({ canvas });
-const cube = new Mesh(new BoxGeometry(), new BasicMaterial({ color: '#4f8cff' }));
-engine.scene.add(cube);
-engine.start(({ deltaTime }) => { cube.rotation.y += deltaTime; });
-```
-
-## Issues
-
-The MVP is tracked in 10 GitHub issues covering math, scene graph, renderer, geometry, materials, cameras, lighting, engine lifecycle, interaction, and release quality.
+This is an MVP, not a Three.js replacement. Textures, glTF, physics, post-processing, WebGPU, editor gizmos, and advanced animation remain follow-up work. The browser demo is intentionally small and StackBlitz-friendly.
