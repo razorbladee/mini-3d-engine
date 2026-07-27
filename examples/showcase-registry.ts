@@ -76,7 +76,7 @@ export const examples: ExampleMeta[] = [
     id: 'cinematic-shader-forest',
     group: 'Featured',
     title: 'Cinematic shader forest',
-    summary: 'Enhanced terrain, water, foliage, clouds and atmosphere with layered GLSL and detail maps.',
+    summary: 'Leaf clusters, biome-blended terrain, layered water, clouds and atmosphere with advanced GLSL.',
     hint: 'Wait for 8 maps, then explore',
   },
   {

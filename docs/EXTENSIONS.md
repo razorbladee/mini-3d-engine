@@ -20,7 +20,8 @@ normal map. Это временные demo assets с сохранением ис
 они будут заменены собственным набором. При сетевой ошибке сцена сохраняет
 цветной shader fallback.
 
-Cinematic-вариант использует triplanar mapping земли и скал, два scrolling
+Cinematic-вариант использует triplanar mapping и biome/slope texture blending
+рельефа, отдельные polygon-leaf clusters вместо solid-крон, два scrolling
 normal-map слоя воды, Fresnel/specular, detail noise, foliage transmission,
 cloud rim lighting, distance fog, filmic tone mapping, anisotropic filtering и
 процедурный sky dome с sun glow и высотным градиентом. Это также проверяет

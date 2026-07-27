@@ -796,8 +796,10 @@ uniform sampler2D uMap;
 uniform int uHasMap;
 uniform sampler2D uDetailMap;
 uniform sampler2D uNormalMap;
+uniform sampler2D uTerrainMap;
 uniform float uDetailReady;
 uniform float uNormalReady;
+uniform float uTerrainMapReady;
 uniform vec3 uCameraPosition;
 uniform vec3 uAmbientColor;
 uniform int uDirectionalCount;
@@ -829,6 +831,15 @@ vec4 triplanarBase(vec3 position, vec3 normal, float scale) {
   return xMap * blend.x + yMap * blend.y + zMap * blend.z;
 }
 
+vec4 triplanarTerrain(vec3 position, vec3 normal, float scale) {
+  vec3 blend = pow(abs(normal), vec3(4.0));
+  blend /= max(blend.x + blend.y + blend.z, 0.0001);
+  vec4 xMap = texture(uTerrainMap, position.yz * scale);
+  vec4 yMap = texture(uTerrainMap, position.xz * scale);
+  vec4 zMap = texture(uTerrainMap, position.xy * scale);
+  return xMap * blend.x + yMap * blend.y + zMap * blend.z;
+}
+
 float softShadow() {
   if (uShadowEnabled == 0) return 1.0;
   vec3 projected = vShadowPosition.xyz / max(vShadowPosition.w, 0.0001);
@@ -852,7 +863,8 @@ void main() {
   bool water = uShaderKind > 1.5 && uShaderKind < 2.5;
   bool cloud = uShaderKind > 2.5 && uShaderKind < 3.5;
   bool rock = uShaderKind > 3.5 && uShaderKind < 4.5;
-  bool wood = uShaderKind > 4.5;
+  bool wood = uShaderKind > 4.5 && uShaderKind < 5.5;
+  bool grassBlade = uShaderKind > 5.5;
 
   vec4 texel = vec4(1.0);
   if (uHasMap == 1) {
@@ -881,9 +893,22 @@ void main() {
   float detail = uDetailReady > 0.5 ? texture(uDetailMap, vWorldPosition.xz * 0.32).r : hash(vWorldPosition.xz);
   if (terrain) {
     float slope = 1.0 - max(geometricNormal.y, 0.0);
-    base *= mix(vec3(0.82 + detail * 0.28), vec3(0.62, 0.58, 0.48), slope * 0.55);
+    float broadPatch = uDetailReady > 0.5
+      ? texture(uDetailMap, vWorldPosition.xz * 0.045 + vec2(0.17, 0.41)).r
+      : hash(floor(vWorldPosition.xz * 0.18));
+    vec3 grassColor = base * mix(vec3(0.72, 0.9, 0.62), vec3(1.08, 0.92, 0.56), broadPatch);
+    vec3 soilColor = uTerrainMapReady > 0.5
+      ? triplanarTerrain(vWorldPosition, geometricNormal, 0.34).rgb * vec3(0.78, 0.68, 0.52)
+      : vec3(0.36, 0.25, 0.14);
+    float soilPatch = smoothstep(0.48, 0.7, broadPatch + slope * 0.72);
+    base = mix(grassColor * (0.86 + detail * 0.24), soilColor, soilPatch);
+    float moss = smoothstep(0.18, 0.5, 1.0 - slope) * smoothstep(0.38, 0.72, 1.0 - broadPatch);
+    base = mix(base, base * vec3(0.55, 0.82, 0.48), moss * 0.3);
   } else if (foliage) {
-    base *= 0.8 + detail * 0.35;
+    float vein = 1.0 - smoothstep(0.0, 0.045, abs(vUv.x - 0.5));
+    base *= (0.76 + detail * 0.36) * mix(vec3(1.0), vec3(0.68, 0.9, 0.52), vein * 0.42);
+  } else if (grassBlade) {
+    base *= mix(vec3(0.66, 0.86, 0.46), vec3(1.0, 0.82, 0.38), vUv.y) * (0.82 + detail * 0.2);
   } else if (rock) {
     base *= 0.72 + detail * 0.42;
   } else if (wood) {
@@ -899,7 +924,7 @@ void main() {
   float halfLambert = diffuse * 0.72 + 0.28;
   vec3 lighting = max(uAmbientColor, vec3(0.12)) + lightColor * halfLambert * visibility;
 
-  if (foliage) {
+  if (foliage || grassBlade) {
     float transmission = pow(max(dot(-normal, lightDirection), 0.0), 2.0);
     lighting += vec3(0.2, 0.38, 0.12) * transmission;
   }
@@ -991,6 +1016,40 @@ type ForestMaterialOptions = {
   doubleSided?: boolean;
 };
 
+function createLeafClusterGeometry() {
+  const positions: number[] = [];
+  const uvs: number[] = [];
+  const leaves = 18;
+  for (let index = 0; index < leaves; index += 1) {
+    const angle = index * 2.399963;
+    const layer = index / Math.max(leaves - 1, 1);
+    const radius = 0.16 + Math.sin(layer * Math.PI) * 0.38;
+    const center = new Vector3(Math.cos(angle) * radius, (layer - 0.5) * 1.1, Math.sin(angle) * radius);
+    const right = new Vector3(Math.cos(angle), 0, Math.sin(angle));
+    const width = 0.28 + (index % 3) * 0.035;
+    const height = 0.38 + (index % 4) * 0.025;
+    const outline = [
+      [0, -1],
+      [0.72, -0.48],
+      [1, 0],
+      [0.62, 0.58],
+      [0, 1],
+      [-0.62, 0.58],
+      [-1, 0],
+      [-0.72, -0.48],
+    ] as const;
+    for (let pointIndex = 0; pointIndex < outline.length; pointIndex += 1) {
+      const first = outline[pointIndex];
+      const second = outline[(pointIndex + 1) % outline.length];
+      for (const [x, y] of [[0, 0], first, second] as const) {
+        positions.push(center.x + right.x * x * width, center.y + y * height, center.z + right.z * x * width);
+        uvs.push(x * 0.5 + 0.5, y * 0.5 + 0.5);
+      }
+    }
+  }
+  return new BufferGeometry(positions, undefined, uvs);
+}
+
 function lowPolyForest(mode: 'standard' | 'shader' | 'textured' | 'cinematic' = 'standard'): Runtime {
   const shaderMode = mode !== 'standard';
   const enhancedMode = mode === 'cinematic';
@@ -1001,7 +1060,11 @@ function lowPolyForest(mode: 'standard' | 'shader' | 'textured' | 'cinematic' = 
   const shaderMaterials: ShaderMaterial[] = [];
   const materialsByKind = new Map<number, BasicMaterial[]>();
   const forestMaterial = (options: ForestMaterialOptions, shaderKind = 0, wind = 0, unlit = false) => {
-    const materialOptions = texturedMode ? { ...options, color: '#ffffff' } : options;
+    const materialOptions = {
+      ...options,
+      ...(texturedMode ? { color: '#ffffff' } : {}),
+      ...(enhancedMode && shaderKind === 1 ? { doubleSided: true } : {}),
+    };
     const material = shaderMode
       ? new ShaderMaterial({
           ...materialOptions,
@@ -1012,7 +1075,7 @@ function lowPolyForest(mode: 'standard' | 'shader' | 'textured' | 'cinematic' = 
             uTime: 0,
             uWind: wind,
             uShaderKind: shaderKind,
-            ...(enhancedMode ? { uDetailReady: 0, uNormalReady: 0 } : {}),
+            ...(enhancedMode ? { uDetailReady: 0, uNormalReady: 0, uTerrainMapReady: 0 } : {}),
           },
         })
       : unlit
@@ -1106,7 +1169,7 @@ function lowPolyForest(mode: 'standard' | 'shader' | 'textured' | 'cinematic' = 
   scene.add(water);
 
   const trunkGeometry = new CylinderGeometry(0.16, 1, 6);
-  const crownGeometry = new ConeGeometry(1, 1, 7);
+  const crownGeometry = enhancedMode ? createLeafClusterGeometry() : new ConeGeometry(1, 1, 7);
   const trunkMaterial = forestMaterial({ color: '#76513a', roughness: 0.92 }, 5);
   const crownMaterials = [
     forestMaterial({ color: '#315f3d', roughness: 0.9 }, 1, 0.045),
@@ -1151,7 +1214,11 @@ function lowPolyForest(mode: 'standard' | 'shader' | 'textured' | 'cinematic' = 
   });
 
   const grassGeometry = new BufferGeometry([-0.08, 0, 0, 0.08, 0, 0, 0, 0.55, 0, 0, 0, -0.08, 0, 0, 0.08, 0, 0.48, 0]);
-  const grassMaterial = forestMaterial({ color: '#88a94e', roughness: 1, doubleSided: true }, 1, 0.16);
+  const grassMaterial = forestMaterial(
+    { color: '#88a94e', roughness: 1, doubleSided: true },
+    enhancedMode ? 6 : 1,
+    0.16,
+  );
   let seed = 1357;
   const random = () => ((seed = (seed * 48271) % 2147483647) - 1) / 2147483646;
   const grasses: Mesh[] = [];
@@ -1167,7 +1234,7 @@ function lowPolyForest(mode: 'standard' | 'shader' | 'textured' | 'cinematic' = 
     grasses.push(grass);
   }
 
-  const shrubGeometry = new SphereGeometry(0.62, 7, 4);
+  const shrubGeometry = enhancedMode ? crownGeometry : new SphereGeometry(0.62, 7, 4);
   const shrubMaterials = [
     forestMaterial({ color: '#426f3d', roughness: 0.96 }, 1, 0.075),
     forestMaterial({ color: '#527f42', roughness: 0.96 }, 1, 0.075),
@@ -1362,6 +1429,12 @@ function lowPolyForest(mode: 'standard' | 'shader' | 'textured' | 'cinematic' = 
         .then((loaded) => {
           if (disposed) return;
           for (const material of materialsByKind.get(kind) ?? []) material.map = loaded;
+          if (enhancedMode && kind === 4)
+            for (const material of materialsByKind.get(0) ?? [])
+              if (material instanceof ShaderMaterial) {
+                material.uniforms.uTerrainMap = loaded;
+                material.uniforms.uTerrainMapReady = 1;
+              }
           loadedTextures += 1;
           reportTextureProgress();
         })

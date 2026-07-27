@@ -45,7 +45,8 @@ npm run verify   # format + lint + typecheck + test + build
 реализованы пользовательским GLSL. Третий вариант объединяет эти shaders с
 шестью временными web textures для земли, листвы, воды, облаков, камня и
 дерева. Четвёртый cinematic-вариант добавляет triplanar mapping, detail/normal
-maps, anisotropic filtering, улучшенный ветер, Fresnel-воду, процедурное небо,
+maps, anisotropic filtering, отдельные polygon-leaf clusters вместо solid-крон,
+biome/slope blending рельефа, улучшенный ветер, Fresnel-воду, процедурное небо,
 атмосферу и filmic tone mapping. Scene browser также покрывает геометрию, материалы,
 transforms, procedural/image textures, lighting, cameras, bounds,
 input, frustum culling, particles, physics, animation, assets, GPU resources,

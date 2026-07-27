@@ -60,7 +60,9 @@ Ambient, Directional, Point, Spot и Hemisphere lights. **SpotLight — наст
 `DirectionalLight.castShadow` включает depth shadow map с 3×3 PCF; доступны
 `shadowMapSize`, `shadowSize`, `shadowCenter`, `shadowDistance`, `shadowBias` и
 `shadowStrength`. Один главный directional light отбрасывает тени за кадр;
-`Mesh.castShadow` и `Mesh.receiveShadow` управляют участием объектов.
+`Mesh.castShadow` и `Mesh.receiveShadow` управляют участием объектов;
+double-sided материалы также отключают culling в shadow pass, что важно для
+листовых карточек и травы.
 Ограничение — 4 источника каждого типа (`MAX_LIGHTS`).
 
 Perspective и Orthographic cameras. `Camera.lookAt(target, up)` и

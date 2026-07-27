@@ -299,6 +299,8 @@ export class WebGLRenderer implements Renderer {
     scene.traverse((node) => {
       if (!(node instanceof Mesh) || !node.visible || !node.castShadow || node.material.transparent) return;
       gl.uniformMatrix4fv(uniforms.model, false, node.worldMatrix.elements);
+      if (node.material.doubleSided) gl.disable(gl.CULL_FACE);
+      else gl.enable(gl.CULL_FACE);
       const buffers = this.resources.geometry(node.geometry);
       gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
       gl.enableVertexAttribArray(attributes.position);

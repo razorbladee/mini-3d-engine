@@ -193,6 +193,15 @@ describe('WebGLRenderer draw pass', () => {
     expect(gl.__uniformWrites.findLast((write) => write.name === 'uShadowEnabled')?.value).toBe(1);
   });
 
+  it('renders double-sided foliage into the shadow map without culling', () => {
+    const { gl, renderer, scene, camera } = setupRenderer();
+    const sun = new DirectionalLight();
+    sun.castShadow = true;
+    scene.add(sun, new Mesh(new BoxGeometry(1), new StandardMaterial({ doubleSided: true })));
+    renderer.render(scene, camera);
+    expect(gl.__draws[0].cullFace).toBe(false);
+  });
+
   it('lets a receiving mesh opt out of shadows', () => {
     const { gl, renderer, scene, camera } = setupRenderer();
     const sun = new DirectionalLight();
