@@ -1,16 +1,19 @@
 import { Camera } from '../cameras/Camera';
+import { OrthographicCamera } from '../cameras/OrthographicCamera';
 import { Scene } from '../core/Scene';
 import type { BufferGeometry } from '../geometry/BufferGeometry';
 import { AmbientLight, DirectionalLight, HemisphereLight, PointLight, SpotLight } from '../lights/Light';
 import { StandardMaterial } from '../materials/StandardMaterial';
 import { parseHexColor } from '../math/Color';
+import { Matrix4 } from '../math/Matrix4';
+import { Vector3 } from '../math/Vector3';
 import { Mesh } from '../objects/Mesh';
 import { createProgram, MAX_LIGHTS, PROGRAM_SOURCES, type ProgramState } from './programs';
 import type { Renderer } from './Renderer';
 import { ResourceCache } from './ResourceCache';
 import type { Texture2D } from './Texture2D';
 
-type DirectionalEntry = { color: number[]; direction: number[]; intensity: number };
+type DirectionalEntry = { color: number[]; direction: number[]; intensity: number; source: DirectionalLight };
 type PointEntry = { color: number[]; position: number[]; intensity: number; distance: number };
 type SpotEntry = PointEntry & { direction: number[]; cosAngle: number; penumbra: number };
 type LightState = { ambient: number[]; directional: DirectionalEntry[]; point: PointEntry[]; spot: SpotEntry[] };
@@ -53,8 +56,18 @@ export class WebGLRenderer implements Renderer {
   private readonly resources: ResourceCache;
   private readonly basic: ProgramState;
   private readonly lit: ProgramState;
+  private readonly depth: ProgramState;
   private disposed = false;
   private readonly background = new Float32Array([0.06, 0.08, 0.13]);
+  private shadowFramebuffer: WebGLFramebuffer | null = null;
+  private shadowTexture: WebGLTexture | null = null;
+  private shadowMapSize = 0;
+  private readonly shadowCamera = new OrthographicCamera(-12, 12, 12, -12, 0.1, 60);
+  private readonly shadowProjection = new Matrix4();
+  private readonly shadowMatrix = new Matrix4();
+  private readonly shadowDirection = new Vector3();
+  private readonly shadowUp = new Vector3(0, 1, 0);
+  private activeShadowLight: DirectionalLight | null = null;
 
   /** Reused across frames to keep the draw loop allocation-free. */
   private readonly drawList: { mesh: Mesh; depth: number; transparent: boolean }[] = [];
@@ -82,8 +95,10 @@ export class WebGLRenderer implements Renderer {
 
     const basic = createProgram(gl, PROGRAM_SOURCES.basic.vertex, PROGRAM_SOURCES.basic.fragment, false);
     const lit = createProgram(gl, PROGRAM_SOURCES.lit.vertex, PROGRAM_SOURCES.lit.fragment, true);
+    const depth = createProgram(gl, PROGRAM_SOURCES.depth.vertex, PROGRAM_SOURCES.depth.fragment, false);
     this.basic = { ...basic, program: this.resources.program(basic.program) };
     this.lit = { ...lit, program: this.resources.program(lit.program) };
+    this.depth = { ...depth, program: this.resources.program(depth.program) };
 
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.LESS);
@@ -149,13 +164,17 @@ export class WebGLRenderer implements Renderer {
           penumbra: node.penumbra,
         });
       } else if (node instanceof DirectionalLight) {
-        if (state.directional.length >= MAX_LIGHTS) return;
         const color = parseHexColor(node.color);
-        state.directional.push({
+        const entry: DirectionalEntry = {
           color: [color[0], color[1], color[2]],
           direction: [node.direction.x, node.direction.y, node.direction.z],
           intensity: node.intensity,
-        });
+          source: node,
+        };
+        const hasShadowLeader = state.directional.some((light) => light.source.castShadow);
+        if (node.castShadow && !hasShadowLeader) state.directional.unshift(entry);
+        else state.directional.push(entry);
+        if (state.directional.length > MAX_LIGHTS) state.directional.pop();
       } else if (node instanceof PointLight) {
         if (state.point.length >= MAX_LIGHTS) return;
         const color = parseHexColor(node.color);
@@ -171,7 +190,85 @@ export class WebGLRenderer implements Renderer {
     return state;
   }
 
-  private uploadLights(state: ProgramState, camera: Camera) {
+  private ensureShadowTarget(size: number) {
+    if (this.shadowFramebuffer && this.shadowTexture && this.shadowMapSize === size) return;
+    const gl = this.gl;
+    if (this.shadowTexture) gl.deleteTexture(this.shadowTexture);
+    if (this.shadowFramebuffer) gl.deleteFramebuffer(this.shadowFramebuffer);
+
+    const texture = gl.createTexture();
+    const framebuffer = gl.createFramebuffer();
+    if (!texture || !framebuffer) throw new Error('Unable to create directional shadow map');
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.DEPTH_COMPONENT24, size, size, 0, gl.DEPTH_COMPONENT, gl.UNSIGNED_INT, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, texture, 0);
+    gl.drawBuffers([gl.NONE]);
+    gl.readBuffer(gl.NONE);
+    if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE)
+      throw new Error('Directional shadow framebuffer is incomplete');
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    this.shadowTexture = texture;
+    this.shadowFramebuffer = framebuffer;
+    this.shadowMapSize = size;
+  }
+
+  private renderShadowMap(scene: Scene, light: DirectionalLight) {
+    const gl = this.gl;
+    const size = Math.max(128, Math.floor(light.shadowMapSize));
+    this.ensureShadowTarget(size);
+    const half = Math.max(1, light.shadowSize) / 2;
+    const camera = this.shadowCamera;
+    camera.left = -half;
+    camera.right = half;
+    camera.top = half;
+    camera.bottom = -half;
+    camera.near = light.shadowNear;
+    camera.far = light.shadowFar;
+    camera.updateProjectionMatrix();
+    this.shadowDirection.copy(light.direction);
+    if (this.shadowDirection.lengthSquared() < 1e-8) this.shadowDirection.set(0, -1, 0);
+    this.shadowDirection.normalize();
+    this.shadowUp.set(
+      0,
+      Math.abs(this.shadowDirection.y) > 0.99 ? 0 : 1,
+      Math.abs(this.shadowDirection.y) > 0.99 ? 1 : 0,
+    );
+    camera.position.copy(light.shadowCenter).addScaledVector(this.shadowDirection, -light.shadowDistance);
+    camera.lookAt(light.shadowCenter, this.shadowUp);
+    camera.updateViewMatrix();
+    this.shadowProjection.elements.set(camera.projectionMatrix);
+    this.shadowMatrix.multiplyMatrices(this.shadowProjection, camera.viewMatrix);
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.shadowFramebuffer);
+    gl.viewport(0, 0, size, size);
+    gl.clear(gl.DEPTH_BUFFER_BIT);
+    gl.useProgram(this.depth.program);
+    gl.disable(gl.BLEND);
+    gl.depthMask(true);
+    gl.enable(gl.CULL_FACE);
+
+    const { uniforms, attributes } = this.depth;
+    gl.uniformMatrix4fv(uniforms.view, false, camera.viewMatrix.elements);
+    gl.uniformMatrix4fv(uniforms.projection, false, camera.projectionMatrix);
+    scene.traverse((node) => {
+      if (!(node instanceof Mesh) || !node.visible || !node.castShadow || node.material.transparent) return;
+      gl.uniformMatrix4fv(uniforms.model, false, node.worldMatrix.elements);
+      const buffers = this.resources.geometry(node.geometry);
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
+      gl.enableVertexAttribArray(attributes.position);
+      gl.vertexAttribPointer(attributes.position, 3, gl.FLOAT, false, 0, 0);
+      gl.drawArrays(gl.TRIANGLES, 0, buffers.vertexCount);
+    });
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+  }
+
+  private uploadLights(state: ProgramState, camera: Camera, mesh: Mesh) {
     const gl = this.gl;
     const uniforms = state.litUniforms;
     if (!uniforms) return;
@@ -182,6 +279,14 @@ export class WebGLRenderer implements Renderer {
     cameraPositionScratch[2] = world[14];
     gl.uniform3fv(uniforms.cameraPosition, cameraPositionScratch);
     gl.uniform3fv(uniforms.ambientColor, this.lights.ambient);
+    const shadowEnabled = Boolean(this.activeShadowLight && this.shadowTexture && mesh.receiveShadow);
+    gl.uniformMatrix4fv(uniforms.shadowMatrix, false, this.shadowMatrix.elements);
+    gl.uniform1i(uniforms.shadowEnabled, shadowEnabled ? 1 : 0);
+    gl.uniform1f(uniforms.shadowBias, this.activeShadowLight?.shadowBias ?? 0);
+    gl.uniform1f(uniforms.shadowStrength, this.activeShadowLight?.shadowStrength ?? 0);
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, this.shadowTexture);
+    gl.uniform1i(uniforms.shadowMap, 1);
 
     const { directional, point } = this.lights;
     for (let i = 0; i < directional.length; i += 1) {
@@ -230,11 +335,15 @@ export class WebGLRenderer implements Renderer {
     if (this.disposed) throw new Error('WebGLRenderer has been disposed');
     const gl = this.gl;
 
-    gl.clearColor(this.background[0], this.background[1], this.background[2], 1);
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     scene.updateWorldMatrix();
     camera.updateViewMatrix();
     this.collectLights(scene);
+    const shadowLight = this.lights.directional[0]?.source;
+    this.activeShadowLight = shadowLight?.castShadow ? shadowLight : null;
+    if (this.activeShadowLight) this.renderShadowMap(scene, this.activeShadowLight);
+
+    gl.clearColor(this.background[0], this.background[1], this.background[2], 1);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
     // Depth along the camera forward axis. The previous code differenced world
     // Z, which is only meaningful while the camera looks down -Z; once orbited,
@@ -281,7 +390,7 @@ export class WebGLRenderer implements Renderer {
       }
 
       if (state === this.lit) {
-        this.uploadLights(state, camera);
+        this.uploadLights(state, camera, mesh);
         const material = mesh.material as StandardMaterial;
         gl.uniform1f(state.litUniforms!.roughness, material.roughness);
         gl.uniform1f(state.litUniforms!.metalness, material.metalness);
@@ -336,6 +445,10 @@ export class WebGLRenderer implements Renderer {
 
   dispose() {
     if (this.disposed) return;
+    if (this.shadowTexture) this.gl.deleteTexture(this.shadowTexture);
+    if (this.shadowFramebuffer) this.gl.deleteFramebuffer(this.shadowFramebuffer);
+    this.shadowTexture = null;
+    this.shadowFramebuffer = null;
     this.resources.dispose();
     this.disposed = true;
   }

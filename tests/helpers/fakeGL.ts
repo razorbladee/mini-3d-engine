@@ -53,8 +53,16 @@ const GL_CONSTANTS: Record<string, number> = {
   FLOAT: 0x1406,
   TEXTURE_2D: 0x0de1,
   TEXTURE0: 0x84c0,
+  TEXTURE1: 0x84c1,
   RGBA: 0x1908,
+  DEPTH_COMPONENT: 0x1902,
+  DEPTH_COMPONENT24: 0x81a6,
   UNSIGNED_BYTE: 0x1401,
+  UNSIGNED_INT: 0x1405,
+  FRAMEBUFFER: 0x8d40,
+  DEPTH_ATTACHMENT: 0x8d00,
+  FRAMEBUFFER_COMPLETE: 0x8cd5,
+  NONE: 0,
   TEXTURE_WRAP_S: 0x2802,
   TEXTURE_WRAP_T: 0x2803,
   TEXTURE_MIN_FILTER: 0x2801,
@@ -130,6 +138,14 @@ export function createFakeGL(options: { declaredUniforms?: string[] } = {}): Fak
     pixelStorei: (name: number, value: number) => {
       (gl as unknown as FakeGL).__pixelStore.push({ name, value });
     },
+
+    createFramebuffer: () => create('framebuffer'),
+    deleteFramebuffer: destroy,
+    bindFramebuffer: () => {},
+    framebufferTexture2D: () => {},
+    drawBuffers: () => {},
+    readBuffer: () => {},
+    checkFramebufferStatus: () => GL_CONSTANTS.FRAMEBUFFER_COMPLETE,
 
     createShader: () => create('shader'),
     deleteShader: destroy,

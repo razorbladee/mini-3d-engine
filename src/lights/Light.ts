@@ -11,6 +11,16 @@ export abstract class Light extends Node {
 export class AmbientLight extends Light {}
 export class DirectionalLight extends Light {
   direction = new Vector3(0, -1, 0);
+  /** Enables one directional shadow-map pass. The first shadow-casting light wins. */
+  castShadow = false;
+  shadowMapSize = 1024;
+  shadowSize = 24;
+  shadowNear = 0.1;
+  shadowFar = 60;
+  shadowDistance = 30;
+  shadowBias = 0.0015;
+  shadowStrength = 0.82;
+  readonly shadowCenter = new Vector3();
 }
 export class PointLight extends Light {
   distance = 0;

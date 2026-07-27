@@ -38,8 +38,9 @@ npm run verify   # format + lint + typecheck + test + build
 `npm run test:coverage`, `npm run build`.
 
 Главная страница примеров: `index.html`. Первой открывается полностью
-процедурная low-poly сцена леса с рельефом, прудом, травой и облаками — без
-внешних моделей. Scene browser также покрывает геометрию, материалы,
+процедурная low-poly сцена леса с рельефом, прудом, травой, облаками и мягкими
+направленными тенями — без внешних моделей. Scene browser также покрывает
+геометрию, материалы,
 transforms, procedural/image textures, lighting, cameras, bounds,
 input, frustum culling, particles, physics, animation, assets, GPU resources,
 scene inspection, renderer/audio boundaries, post-processing и glTF/GLB.

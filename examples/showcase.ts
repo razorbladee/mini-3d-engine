@@ -644,11 +644,18 @@ function lowPolyForest(): Runtime {
   (engine.renderer as WebGLRenderer).setClearColor('#8fc4dc');
   r.controls!.focus(new Vector3(0, 1.1, -4), 19);
 
-  const ambient = new AmbientLight('#dff2df', 0.42);
-  const sky = new HemisphereLight('#d8efff', 0.85);
+  const ambient = new AmbientLight('#dff2df', 0.16);
+  const sky = new HemisphereLight('#d8efff', 0.38);
   sky.groundColor = '#566a3d';
   const sun = new DirectionalLight('#fff0bd', 1.65);
   sun.direction.set(-0.55, -1, -0.35);
+  sun.castShadow = true;
+  sun.shadowMapSize = 2048;
+  sun.shadowSize = 30;
+  sun.shadowDistance = 32;
+  sun.shadowBias = 0.0022;
+  sun.shadowStrength = 0.86;
+  sun.shadowCenter.set(0, 1.5, -4);
   scene.add(ambient, sky, sun);
 
   const pondX = 3.2;
@@ -792,6 +799,15 @@ function lowPolyForest(): Runtime {
     return cloud;
   });
 
+  const controls = addToolbar([
+    {
+      label: 'Toggle shadows',
+      run: () => {
+        sun.castShadow = !sun.castShadow;
+        status(`directional shadows ${sun.castShadow ? 'on' : 'off'}`);
+      },
+    },
+  ]);
   r.update = ({ deltaTime, elapsed }) => {
     water.position.y = -0.35 + Math.sin(elapsed * 0.8) * 0.015;
     clouds.forEach((cloud, index) => {
@@ -800,8 +816,9 @@ function lowPolyForest(): Runtime {
     });
   };
   r.stats = () =>
-    `procedural world · trees ${trees.length} · grass ${grasses.length} · clouds ${clouds.length} · external assets 0`;
-  status('procedural low-poly world · no external models');
+    `shadows ${sun.castShadow ? '2048² PCF' : 'off'} · trees ${trees.length} · grass ${grasses.length} · clouds ${clouds.length} · external assets 0`;
+  r.dispose = () => controls.remove();
+  status('procedural low-poly world · directional shadows on');
   return r;
 }
 function customGeometry(): Runtime {

@@ -6,14 +6,17 @@ uniform mat4 uModel;
 uniform mat4 uView;
 uniform mat4 uProjection;
 uniform mat3 uNormalMatrix;
+uniform mat4 uShadowMatrix;
 out vec3 vWorldPosition;
 out vec3 vWorldNormal;
 out vec2 vUv;
+out vec4 vShadowPosition;
 void main() {
   vec4 worldPosition = uModel * vec4(position, 1.0);
   vWorldPosition = worldPosition.xyz;
   vWorldNormal = normalize(uNormalMatrix * normal);
   vUv = uv;
+  vShadowPosition = uShadowMatrix * worldPosition;
   gl_Position = uProjection * uView * worldPosition;
 }`;
 
@@ -57,9 +60,14 @@ uniform float uSpotIntensity[MAX_LIGHTS];
 uniform float uSpotDistance[MAX_LIGHTS];
 uniform float uSpotCosAngle[MAX_LIGHTS];
 uniform float uSpotPenumbra[MAX_LIGHTS];
+uniform sampler2D uShadowMap;
+uniform int uShadowEnabled;
+uniform float uShadowBias;
+uniform float uShadowStrength;
 in vec3 vWorldPosition;
 in vec3 vWorldNormal;
 in vec2 vUv;
+in vec4 vShadowPosition;
 out vec4 outColor;
 
 vec3 shade(vec3 lightDirection, vec3 normal, vec3 view, vec3 base, float shininess) {
@@ -67,6 +75,22 @@ vec3 shade(vec3 lightDirection, vec3 normal, vec3 view, vec3 base, float shinine
   vec3 halfVector = normalize(lightDirection + view);
   float specular = pow(max(dot(normal, halfVector), 0.0), shininess) * (1.0 - uRoughness) * mix(0.04, 1.0, uMetalness);
   return diffuse * base + specular;
+}
+
+float shadowVisibility() {
+  if (uShadowEnabled == 0) return 1.0;
+  vec3 projected = vShadowPosition.xyz / max(vShadowPosition.w, 0.0001);
+  projected = projected * 0.5 + 0.5;
+  if (projected.x <= 0.0 || projected.x >= 1.0 || projected.y <= 0.0 || projected.y >= 1.0 || projected.z <= 0.0 || projected.z >= 1.0) return 1.0;
+  vec2 texel = 1.0 / vec2(textureSize(uShadowMap, 0));
+  float litSamples = 0.0;
+  for (int x = -1; x <= 1; x++) {
+    for (int y = -1; y <= 1; y++) {
+      float closest = texture(uShadowMap, projected.xy + vec2(float(x), float(y)) * texel).r;
+      litSamples += projected.z - uShadowBias <= closest ? 1.0 : 0.0;
+    }
+  }
+  return mix(1.0, litSamples / 9.0, uShadowStrength);
 }
 
 void main() {
@@ -78,10 +102,12 @@ void main() {
   vec3 lighting = max(uAmbientColor, vec3(0.12));
   float shininess = mix(8.0, 96.0, 1.0 - uRoughness);
 
+  float directionalShadow = shadowVisibility();
   for (int i = 0; i < MAX_LIGHTS; i++) {
     if (i >= uDirectionalCount) break;
     vec3 l = normalize(-uDirectionalDirection[i]);
-    lighting += shade(l, n, v, base, shininess) * uDirectionalColor[i] * uDirectionalIntensity[i];
+    float visibility = i == 0 ? directionalShadow : 1.0;
+    lighting += shade(l, n, v, base, shininess) * uDirectionalColor[i] * uDirectionalIntensity[i] * visibility;
   }
 
   for (int i = 0; i < MAX_LIGHTS; i++) {
@@ -114,3 +140,17 @@ void main() {
 
   outColor = vec4(clamp(base * lighting, 0.0, 1.0), surface.a);
 }`;
+
+export const depthVertexSource = `#version 300 es
+in vec3 position;
+uniform mat4 uModel;
+uniform mat4 uView;
+uniform mat4 uProjection;
+void main() {
+  gl_Position = uProjection * uView * uModel * vec4(position, 1.0);
+}`;
+
+export const depthFragmentSource = `#version 300 es
+precision highp float;
+void main() {}
+`;

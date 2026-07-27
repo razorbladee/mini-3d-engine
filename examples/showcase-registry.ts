@@ -52,8 +52,8 @@ export const examples: ExampleMeta[] = [
     id: 'low-poly-forest',
     group: 'Featured',
     title: 'Low-poly forest world',
-    summary: 'A procedural forest, pond, sparse grass, clouds and rolling terrain — no external models.',
-    hint: 'Drag to explore, wheel to zoom',
+    summary: 'A procedural forest, pond, terrain and moving clouds with soft directional shadows.',
+    hint: 'Drag to explore, toggle shadows',
   },
   {
     id: 'primitives',

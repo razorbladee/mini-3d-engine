@@ -40,9 +40,9 @@ describe('WebGLRenderer setup', () => {
     expect(() => new WebGLRenderer(canvas)).toThrow('WebGL2');
   });
 
-  it('compiles a basic and a lit program', () => {
+  it('compiles basic, lit and shadow-depth programs', () => {
     const { gl } = setupRenderer();
-    expect(gl.__live('program')).toHaveLength(2);
+    expect(gl.__live('program')).toHaveLength(3);
   });
 
   it('applies device pixel ratio to the drawing buffer', () => {
@@ -161,6 +161,29 @@ describe('WebGLRenderer draw pass', () => {
     expect(gl.__clearColor?.[3]).toBe(1);
   });
 
+  it('renders a depth pass and enables shadow sampling for a shadow-casting sun', () => {
+    const { gl, renderer, scene, camera } = setupRenderer();
+    const sun = new DirectionalLight();
+    sun.castShadow = true;
+    sun.shadowMapSize = 256;
+    scene.add(sun, new Mesh(new BoxGeometry(1), new StandardMaterial()));
+    renderer.render(scene, camera);
+    expect(gl.__live('framebuffer')).toHaveLength(1);
+    expect(gl.__draws).toHaveLength(2);
+    expect(gl.__uniformWrites.findLast((write) => write.name === 'uShadowEnabled')?.value).toBe(1);
+  });
+
+  it('lets a receiving mesh opt out of shadows', () => {
+    const { gl, renderer, scene, camera } = setupRenderer();
+    const sun = new DirectionalLight();
+    sun.castShadow = true;
+    const mesh = new Mesh(new BoxGeometry(1), new StandardMaterial());
+    mesh.receiveShadow = false;
+    scene.add(sun, mesh);
+    renderer.render(scene, camera);
+    expect(gl.__uniformWrites.findLast((write) => write.name === 'uShadowEnabled')?.value).toBe(0);
+  });
+
   it('draws every visible mesh once', () => {
     const { gl, renderer, scene, camera } = setupRenderer();
     for (let i = 0; i < 3; i += 1) {
@@ -256,6 +279,9 @@ describe('WebGLRenderer resource ownership', () => {
   it('releases every GPU resource it created on dispose', () => {
     const { gl, renderer, scene, camera } = setupRenderer();
     for (let i = 0; i < 4; i += 1) scene.add(new Mesh(new BoxGeometry(1), new BasicMaterial()));
+    const sun = new DirectionalLight();
+    sun.castShadow = true;
+    scene.add(sun);
     renderer.render(scene, camera);
 
     renderer.dispose();

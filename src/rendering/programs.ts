@@ -1,4 +1,10 @@
-import { basicFragmentSource, litFragmentSource, vertexSource } from './shaders';
+import {
+  basicFragmentSource,
+  depthFragmentSource,
+  depthVertexSource,
+  litFragmentSource,
+  vertexSource,
+} from './shaders';
 
 /**
  * Explicit uniform tables.
@@ -23,6 +29,11 @@ export const SHARED_UNIFORMS = {
 
 export const LIT_UNIFORMS = {
   roughness: 'uRoughness',
+  shadowMatrix: 'uShadowMatrix',
+  shadowMap: 'uShadowMap',
+  shadowEnabled: 'uShadowEnabled',
+  shadowBias: 'uShadowBias',
+  shadowStrength: 'uShadowStrength',
   metalness: 'uMetalness',
   cameraPosition: 'uCameraPosition',
   ambientColor: 'uAmbientColor',
@@ -116,4 +127,5 @@ export function createProgram(
 export const PROGRAM_SOURCES = {
   basic: { vertex: vertexSource, fragment: basicFragmentSource, lit: false },
   lit: { vertex: vertexSource, fragment: litFragmentSource, lit: true },
+  depth: { vertex: depthVertexSource, fragment: depthFragmentSource, lit: false },
 } as const;

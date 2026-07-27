@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { basicFragmentSource, litFragmentSource, vertexSource } from '../../src/rendering/shaders';
+import {
+  basicFragmentSource,
+  depthFragmentSource,
+  depthVertexSource,
+  litFragmentSource,
+  vertexSource,
+} from '../../src/rendering/shaders';
 
 /**
  * AUDIT-TZ T-5.
@@ -15,6 +21,8 @@ const sources = [
   { name: 'vertex', source: vertexSource },
   { name: 'basic fragment', source: basicFragmentSource },
   { name: 'lit fragment', source: litFragmentSource },
+  { name: 'depth vertex', source: depthVertexSource },
+  { name: 'depth fragment', source: depthFragmentSource },
 ];
 
 describe('GLSL sources', () => {
@@ -33,14 +41,20 @@ describe('GLSL sources', () => {
     expect(source).not.toMatch(/^[^\S\n]+#/m);
   });
 
-  it.each(sources.filter((entry) => entry.name !== 'vertex'))('$name declares a float precision', ({ source }) => {
-    expect(source).toMatch(/precision\s+(low|medium|high)p\s+float\s*;/);
-  });
+  it.each(sources.filter((entry) => entry.name.includes('fragment')))(
+    '$name declares a float precision',
+    ({ source }) => {
+      expect(source).toMatch(/precision\s+(low|medium|high)p\s+float\s*;/);
+    },
+  );
 
-  it.each(sources)('$name declares exactly one fragment output, or none for the vertex stage', ({ name, source }) => {
-    const outputs = source.match(/\bout\s+vec4\s+\w+\s*;/g) ?? [];
-    expect(outputs.length).toBe(name === 'vertex' ? 0 : 1);
-  });
+  it.each(sources.filter((entry) => entry.name.includes('fragment')))(
+    '$name declares a color output only when it writes color',
+    ({ name, source }) => {
+      const outputs = source.match(/\bout\s+vec4\s+\w+\s*;/g) ?? [];
+      expect(outputs.length).toBe(name === 'depth fragment' ? 0 : 1);
+    },
+  );
 
   it('defines MAX_LIGHTS before using it', () => {
     const defineIndex = litFragmentSource.indexOf('#define MAX_LIGHTS');

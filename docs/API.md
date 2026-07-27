@@ -51,6 +51,10 @@ gлубины.
 
 Ambient, Directional, Point, Spot и Hemisphere lights. **SpotLight — настоящий
 конус**: учитываются позиция, направление, `angle`, `penumbra` и `distance`.
+`DirectionalLight.castShadow` включает depth shadow map с 3×3 PCF; доступны
+`shadowMapSize`, `shadowSize`, `shadowCenter`, `shadowDistance`, `shadowBias` и
+`shadowStrength`. Один главный directional light отбрасывает тени за кадр;
+`Mesh.castShadow` и `Mesh.receiveShadow` управляют участием объектов.
 Ограничение — 4 источника каждого типа (`MAX_LIGHTS`).
 
 Perspective и Orthographic cameras. `Camera.lookAt(target, up)` и
@@ -74,14 +78,17 @@ view-projection матрицы. `AssetManager` дедуплицирует заг
 
 `Renderer` задаёт backend contract, `WebGLRenderer implements Renderer`.
 `WebGLRenderer.setClearColor()` настраивает фон кадра. Renderer поддерживает
-depth test/write, culling, сортировку по глубине **вдоль оси
+directional shadow depth pass, мягкую 3×3 PCF-фильтрацию, depth test/write,
+culling и сортировку по глубине **вдоль оси
 взгляда камеры** (opaque front-to-back, transparent back-to-front), alpha
 blending, depth-mask handling и inverse-transpose normal matrix для
 non-uniform scale.
 
 Имена uniform-ов заданы явными таблицами в `programs.ts` и сверяются с GLSL
-тестом. `ResourceCache` — единственный владелец buffers, textures и programs;
-`stats` сообщает их количество. `WebGLRenderer.resourceStats`,
+тестом. `ResourceCache` владеет mesh buffers, material textures и programs;
+shadow framebuffer/texture принадлежат `WebGLRenderer`. У обоих есть полный
+`dispose` path. `stats` сообщает количество cached resources.
+`WebGLRenderer.resourceStats`,
 `releaseGeometry()` и `releaseTexture()` доступны диагностическим инструментам.
 `dispose()` освобождает всё созданное, повторный `render()` бросает ошибку.
 Кадр в установившемся режиме не аллоцирует.

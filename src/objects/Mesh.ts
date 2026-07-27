@@ -10,6 +10,11 @@ import { BasicMaterial } from '../materials/BasicMaterial';
  * renderer's ResourceCache (AUDIT-TZ P1-6, P2-2).
  */
 export class Mesh extends Node {
+  /** Controls participation in the directional shadow pass. */
+  castShadow = true;
+  /** Allows lit materials to opt out of sampled shadows. */
+  receiveShadow = true;
+
   constructor(
     public geometry: BufferGeometry,
     public material: BasicMaterial,
