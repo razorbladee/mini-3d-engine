@@ -1,5 +1,106 @@
-import {Node} from '../core/Node';import {Mesh} from '../objects/Mesh';import {BufferGeometry} from '../geometry/BufferGeometry';import {StandardMaterial} from '../materials/StandardMaterial';
-export type LoadedModel={scene:Node;animations:unknown[]};
-export class GLTFLoader{async load(url:string):Promise<LoadedModel>{const r=await fetch(url);if(!r.ok)throw new Error(`Unable to load glTF: ${r.status} ${r.statusText}`);const base=new URL('.',url);return url.toLowerCase().endsWith('.glb')?this.parseGlb(await r.arrayBuffer(),base):this.parseJson(await r.json(),base)}async parseGlb(data:ArrayBuffer,base=new URL('.',globalThis.location?.href??'http://localhost/')):Promise<LoadedModel>{const v=new DataView(data);if(data.byteLength<20||v.getUint32(0,true)!==0x46546c67)throw new Error('Invalid GLB header');const len=v.getUint32(12,true);if(v.getUint32(16,true)!==0x4e4f534a)throw new Error('GLB JSON chunk is missing');const json=JSON.parse(new TextDecoder().decode(new Uint8Array(data,20,len)).replace(/\0+$/,'').trim());const bin=20+len;const binLen=bin+8<=data.byteLength?v.getUint32(bin,true):0;const binType=bin+8<=data.byteLength?v.getUint32(bin+4,true):0;return this.build(json,binType===0x004e4942?[data.slice(bin+8,bin+8+binLen)]:[],base)}async parseJson(json:any,base:URL):Promise<LoadedModel>{const buffers=await Promise.all((json.buffers??[]).map(async(b:any)=>{if(b.uri?.startsWith('data:'))return this.data(b.uri);const r=await fetch(new URL(b.uri,base));if(!r.ok)throw new Error(`Unable to load glTF buffer: ${r.status}`);return r.arrayBuffer()}));return this.build(json,buffers,base)}private data(uri:string){const raw=atob(uri.split(',')[1]),bytes=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)bytes[i]=raw.charCodeAt(i);return bytes.buffer}
-private build(json:any,buffers:ArrayBuffer[],_base:URL):LoadedModel{const root=new Node();const read=(index:number)=>{const a=json.accessors[index],b=json.bufferViews[a.bufferView],buf=buffers[b.bufferView===undefined?0:b.buffer];if(!a||!b||!buf)throw new Error(`Invalid glTF accessor ${index}`);const C=a.componentType===5126?Float32Array:a.componentType===5125?Uint32Array:a.componentType===5123?Uint16Array:Uint8Array;const n=a.type==='VEC4'?4:a.type==='VEC3'?3:a.type==='VEC2'?2:1;return{values:new C(buf,(b.byteOffset??0)+(a.byteOffset??0),a.count*n),n}};const expand=(source:number[]|undefined,indices:number[],stride:number)=>source?indices.flatMap(i=>source.slice(i*stride,i*stride+stride)):undefined;const meshList=(json.meshes??[]).map((m:any)=>{const p=m.primitives?.[0];if(!p?.attributes?.POSITION)return null;const pos=read(p.attributes.POSITION);let positions=Array.from(pos.values) as number[];let normals=p.attributes.NORMAL?Array.from(read(p.attributes.NORMAL).values) as number[]:undefined;let uvs=p.attributes.TEXCOORD_0?Array.from(read(p.attributes.TEXCOORD_0).values) as number[]:undefined;if(p.indices!==undefined){const indices=Array.from(read(p.indices).values) as number[];positions=expand(positions,indices,3)!;normals=expand(normals??[],indices,3);uvs=expand(uvs??[],indices,2)}const pbr=json.materials?.[p.material]?.pbrMetallicRoughness;return new Mesh(new BufferGeometry(positions,normals,uvs),new StandardMaterial({color:'#b5b1c6',roughness:pbr?.roughnessFactor??.5,metalness:pbr?.metallicFactor??0}))});const visit=(index:number,parent:Node)=>{const n=json.nodes?.[index];if(!n)return;const mesh=meshList[n.mesh];if(mesh){if(n.translation)mesh.position.set(...n.translation);if(n.scale)mesh.scale.set(...n.scale);parent.add(mesh)}for(const child of n.children??[])visit(child,mesh??parent)};for(const index of json.scenes?.[json.scene??0]?.nodes??[])visit(index,root);if(root.children.length===0)throw new Error('glTF scene contains no renderable meshes');let radius=0;root.traverse((n)=>{if(n instanceof Mesh)radius=Math.max(radius,n.geometry.boundingRadius)});if(radius>0&&radius>4)root.scale.set(3/radius,3/radius,3/radius);return{scene:root,animations:json.animations??[]}}
+import { Node } from '../core/Node';
+import { Mesh } from '../objects/Mesh';
+import { BufferGeometry } from '../geometry/BufferGeometry';
+import { StandardMaterial } from '../materials/StandardMaterial';
+
+export type LoadedModel = { scene: Node; animations: unknown[] };
+type Accessor = { values: number[]; components: number };
+
+export class GLTFLoader {
+  async load(url: string): Promise<LoadedModel> {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`Unable to load glTF: ${response.status} ${response.statusText}`);
+    const base = new URL('.', url);
+    return url.toLowerCase().endsWith('.glb') ? this.parseGlb(await response.arrayBuffer(), base) : this.parseJson(await response.json(), base);
+  }
+
+  async parseGlb(data: ArrayBuffer, base = new URL('.', globalThis.location?.href ?? 'http://localhost/')): Promise<LoadedModel> {
+    const view = new DataView(data);
+    if (data.byteLength < 20 || view.getUint32(0, true) !== 0x46546c67) throw new Error('Invalid GLB header');
+    const jsonLength = view.getUint32(12, true);
+    if (view.getUint32(16, true) !== 0x4e4f534a) throw new Error('GLB JSON chunk is missing');
+    const jsonText = new TextDecoder().decode(new Uint8Array(data, 20, jsonLength)).replace(/\0+$/g, '').trim();
+    const json = JSON.parse(jsonText);
+    const binHeader = 20 + jsonLength;
+    const binLength = binHeader + 8 <= data.byteLength ? view.getUint32(binHeader, true) : 0;
+    const binType = binHeader + 8 <= data.byteLength ? view.getUint32(binHeader + 4, true) : 0;
+    const buffers = binType === 0x004e4942 ? [data.slice(binHeader + 8, binHeader + 8 + binLength)] : [];
+    return this.build(json, buffers, base);
+  }
+
+  async parseJson(json: any, base: URL): Promise<LoadedModel> {
+    const buffers = await Promise.all((json.buffers ?? []).map(async (buffer: any) => {
+      if (buffer.uri?.startsWith('data:')) return this.decodeDataUri(buffer.uri);
+      const response = await fetch(new URL(buffer.uri, base));
+      if (!response.ok) throw new Error(`Unable to load glTF buffer: ${response.status}`);
+      return response.arrayBuffer();
+    }));
+    return this.build(json, buffers, base);
+  }
+
+  private decodeDataUri(uri: string) {
+    const raw = atob(uri.split(',')[1]);
+    const bytes = new Uint8Array(raw.length);
+    for (let index = 0; index < raw.length; index += 1) bytes[index] = raw.charCodeAt(index);
+    return bytes.buffer;
+  }
+
+  private build(json: any, buffers: ArrayBuffer[], _base: URL): LoadedModel {
+    const root = new Node();
+    const read = (index: number): Accessor => {
+      const accessor = json.accessors?.[index];
+      const view = accessor ? json.bufferViews?.[accessor.bufferView] : undefined;
+      const buffer = view ? buffers[view.buffer ?? 0] : undefined;
+      if (!accessor || !view || !buffer) throw new Error(`Invalid glTF accessor ${index}`);
+      const components = accessor.type === 'VEC4' ? 4 : accessor.type === 'VEC3' ? 3 : accessor.type === 'VEC2' ? 2 : 1;
+      const componentBytes = accessor.componentType === 5126 || accessor.componentType === 5125 ? 4 : accessor.componentType === 5123 ? 2 : 1;
+      const stride = view.byteStride ?? components * componentBytes;
+      const start = (view.byteOffset ?? 0) + (accessor.byteOffset ?? 0);
+      const values: number[] = [];
+      const readComponent = (offset: number) => {
+        if (accessor.componentType === 5126) return new DataView(buffer).getFloat32(offset, true);
+        if (accessor.componentType === 5125) return new DataView(buffer).getUint32(offset, true);
+        if (accessor.componentType === 5123) return new DataView(buffer).getUint16(offset, true);
+        return new DataView(buffer).getUint8(offset);
+      };
+      for (let item = 0; item < accessor.count; item += 1) for (let component = 0; component < components; component += 1) values.push(readComponent(start + item * stride + component * componentBytes));
+      return { values, components };
+    };
+    const expand = (source: number[] | undefined, indices: number[], stride: number) => source ? indices.flatMap((index) => source.slice(index * stride, index * stride + stride)) : undefined;
+    const meshList = (json.meshes ?? []).map((mesh: any) => {
+      const primitive = mesh.primitives?.[0];
+      if (!primitive?.attributes?.POSITION) return null;
+      const position = read(primitive.attributes.POSITION);
+      let positions = position.values;
+      let normals = primitive.attributes.NORMAL === undefined ? undefined : read(primitive.attributes.NORMAL).values;
+      let uvs = primitive.attributes.TEXCOORD_0 === undefined ? undefined : read(primitive.attributes.TEXCOORD_0).values;
+      if (primitive.indices !== undefined) {
+        const indices = read(primitive.indices).values;
+        positions = expand(positions, indices, 3) ?? [];
+        normals = expand(normals, indices, 3);
+        uvs = expand(uvs, indices, 2);
+      }
+      const pbr = json.materials?.[primitive.material]?.pbrMetallicRoughness;
+      const color = pbr?.baseColorFactor ? `#${pbr.baseColorFactor.slice(0, 3).map((value: number) => Math.round(value * 255).toString(16).padStart(2, '0')).join('')}` : '#b5b1c6';
+      return new Mesh(new BufferGeometry(positions, normals, uvs), new StandardMaterial({ color, roughness: pbr?.roughnessFactor ?? 0.5, metalness: pbr?.metallicFactor ?? 0 }));
+    });
+    const visited = new Set<number>();
+    const visit = (index: number, parent: Node) => {
+      if (visited.has(index)) return;
+      visited.add(index);
+      const node = json.nodes?.[index];
+      if (!node) return;
+      const mesh = meshList[node.mesh];
+      const target = mesh ?? parent;
+      if (mesh) { if (node.translation) mesh.position.set(...node.translation); if (node.scale) mesh.scale.set(...node.scale); parent.add(mesh); }
+      for (const child of node.children ?? []) visit(child, target);
+    };
+    for (const index of json.scenes?.[json.scene ?? 0]?.nodes ?? []) visit(index, root);
+    if (root.children.length === 0) for (let index = 0; index < (json.nodes ?? []).length; index += 1) if (json.nodes[index].mesh !== undefined) visit(index, root);
+    if (root.children.length === 0) throw new Error('glTF scene contains no renderable meshes');
+    let radius = 0;
+    root.traverse((node) => { if (node instanceof Mesh) radius = Math.max(radius, node.geometry.boundingRadius); });
+    if (radius > 4) root.scale.set(3 / radius, 3 / radius, 3 / radius);
+    return { scene: root, animations: json.animations ?? [] };
+  }
 }
