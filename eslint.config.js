@@ -31,11 +31,11 @@ export default tseslint.config(
       '@typescript-eslint/no-explicit-any': 'warn',
     },
   },
-  // Technical debt, tracked in docs/AUDIT-TZ.md. These two modules are rewritten
-  // in stages 4-5 (typed glTF schema, typed uniform table); until then their
-  // `any` usage is downgraded rather than silenced, so it stays greppable.
+  // Technical debt, tracked in docs/AUDIT-TZ.md. WebGLRenderer was cleared in
+  // stage 5; GLTFLoader still needs a typed glTF schema, so its `any` usage is
+  // downgraded rather than silenced and stays greppable.
   {
-    files: ['src/loaders/GLTFLoader.ts', 'src/rendering/WebGLRenderer.ts'],
+    files: ['src/loaders/GLTFLoader.ts'],
     rules: {
       '@typescript-eslint/no-explicit-any': 'warn',
     },

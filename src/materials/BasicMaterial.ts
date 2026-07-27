@@ -1,3 +1,4 @@
+import { parseHexColor } from '../math/Color';
 import { Texture2D } from '../rendering/Texture2D';
 
 export class BasicMaterial {
@@ -25,17 +26,9 @@ export class BasicMaterial {
     this.map = options.map;
     this.color[3] = this.opacity;
   }
+  /** RGBA float view of a hex colour; alpha is filled in by the constructor. */
   static parseColor(value: string) {
-    const h = value.replace('#', '');
-    const n = parseInt(
-      h.length === 3
-        ? h
-            .split('')
-            .map((c) => c + c)
-            .join('')
-        : h,
-      16,
-    );
-    return new Float32Array([((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255, 1]);
+    const [r, g, b] = parseHexColor(value);
+    return new Float32Array([r, g, b, 1]);
   }
 }

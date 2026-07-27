@@ -30,6 +30,8 @@ export * from './interaction/InputMap';
 export * from './interaction/Bounds';
 export * from './interaction/Frustum';
 export * from './rendering/Renderer';
+export * from './rendering/ResourceCache';
+export * from './rendering/programs';
 export * from './rendering/WebGLRenderer';
 export * from './rendering/WebGPURenderer';
 export * from './rendering/Texture2D';

@@ -4,9 +4,6 @@ export class BufferGeometry {
   positions: Float32Array;
   normals: Float32Array;
   uvs: Float32Array;
-  gpuBuffer: WebGLBuffer | null = null;
-  normalBuffer: WebGLBuffer | null = null;
-  uvBuffer: WebGLBuffer | null = null;
   readonly boundingRadius: number;
 
   /** Number of vertices in this geometry. */
@@ -94,14 +91,5 @@ export class BufferGeometry {
       }
     }
     return normals;
-  }
-
-  dispose(gl: WebGL2RenderingContext) {
-    if (this.gpuBuffer) gl.deleteBuffer(this.gpuBuffer);
-    if (this.normalBuffer) gl.deleteBuffer(this.normalBuffer);
-    if (this.uvBuffer) gl.deleteBuffer(this.uvBuffer);
-    this.gpuBuffer = null;
-    this.normalBuffer = null;
-    this.uvBuffer = null;
   }
 }

@@ -1,19 +1,19 @@
 import { Node } from '../core/Node';
 import { BufferGeometry } from '../geometry/BufferGeometry';
 import { BasicMaterial } from '../materials/BasicMaterial';
-import { Camera } from '../cameras/Camera';
+
+/**
+ * Geometry plus material in the scene graph.
+ *
+ * The old `render(gl, camera)` and `dispose(gl)` methods were dead weight: the
+ * body was `void gl; void camera`, and GPU lifetime now belongs to the
+ * renderer's ResourceCache (AUDIT-TZ P1-6, P2-2).
+ */
 export class Mesh extends Node {
   constructor(
     public geometry: BufferGeometry,
     public material: BasicMaterial,
   ) {
     super();
-  }
-  render(gl: WebGL2RenderingContext, camera: Camera) {
-    void gl;
-    void camera;
-  }
-  dispose(gl: WebGL2RenderingContext) {
-    this.geometry.dispose(gl);
   }
 }

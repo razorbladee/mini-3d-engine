@@ -119,6 +119,33 @@ describe('Engine lifecycle', () => {
     engine.dispose();
   });
 
+  it('accepts an alternative renderer backend', () => {
+    // AUDIT-TZ P2-1: Engine used to construct WebGLRenderer itself and type the
+    // field concretely, so the swappable backend was impossible.
+    const calls: string[] = [];
+    const fake = {
+      canvas,
+      setSize: () => calls.push('setSize'),
+      render: () => calls.push('render'),
+      dispose: () => calls.push('dispose'),
+    };
+    const engine = new Engine({ canvas, createRenderer: () => fake });
+    expect(engine.renderer).toBe(fake);
+    engine.start();
+    advance(16);
+    engine.dispose();
+    expect(calls).toContain('render');
+    expect(calls).toContain('dispose');
+  });
+
+  it('delegates viewport changes to the camera', () => {
+    const camera = new PerspectiveCamera(60, 1);
+    const engine = new Engine({ canvas, camera });
+    engine.resize();
+    expect(camera.aspect).toBeCloseTo(800 / 600, 5);
+    engine.dispose();
+  });
+
   it('detaches the resize listener on dispose', () => {
     const add = vi.spyOn(globalThis, 'addEventListener');
     const remove = vi.spyOn(globalThis, 'removeEventListener');
