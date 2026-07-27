@@ -3,6 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "stackblitz": {
+    "installDependencies": true,
+    "startCommand": "npm run dev -- --host 0.0.0.0"
+  },
   "scripts": {
     "dev": "vite",
     "build": "npm run typecheck && vite build",
