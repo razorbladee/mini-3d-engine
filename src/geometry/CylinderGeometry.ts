@@ -1,0 +1,4 @@
+import { BufferGeometry } from './BufferGeometry';
+export class CylinderGeometry extends BufferGeometry {
+  constructor(radius = 1, height = 2, segments = 24) { const p: number[] = []; const n: number[] = []; const u: number[] = []; if (segments < 3) throw new Error('CylinderGeometry needs at least 3 segments'); for (let i = 0; i < segments; i += 1) { const a0 = i / segments * Math.PI * 2, a1 = (i + 1) / segments * Math.PI * 2; const x0 = Math.cos(a0) * radius, z0 = Math.sin(a0) * radius, x1 = Math.cos(a1) * radius, z1 = Math.sin(a1) * radius; const quad = (y0: number, y1: number) => { const verts = [[x0,y0,z0],[x1,y0,z1],[x1,y1,z1],[x0,y0,z0],[x1,y1,z1],[x0,y1,z0]]; for (const [x,y,z] of verts) { p.push(x,y,z); n.push(x/radius,0,z/radius); u.push((Math.atan2(z,x)/Math.PI/2+.5), (y+height/2)/height); } }; quad(-height/2,height/2); } super(p,n,u); }
+}
