@@ -1,0 +1,1 @@
+import {BasicMaterial} from './BasicMaterial'; export class StandardMaterial extends BasicMaterial { constructor(options:{color?:string;roughness?:number;metalness?:number}={}){super(options);this.roughness=options.roughness??0.5;this.metalness=options.metalness??0} roughness:number; metalness:number }
