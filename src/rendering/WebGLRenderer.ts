@@ -10,7 +10,8 @@ import { ResourceCache } from './ResourceCache';
 
 type DirectionalEntry = { color: number[]; direction: number[]; intensity: number };
 type PointEntry = { color: number[]; position: number[]; intensity: number; distance: number };
-type LightState = { ambient: number[]; directional: DirectionalEntry[]; point: PointEntry[] };
+type SpotEntry = PointEntry & { direction: number[]; cosAngle: number; penumbra: number };
+type LightState = { ambient: number[]; directional: DirectionalEntry[]; point: PointEntry[]; spot: SpotEntry[] };
 
 /** Reusable per-frame scratch, so a steady-state frame allocates nothing. */
 const normalMatrixScratch = new Float32Array(9);
@@ -54,7 +55,7 @@ export class WebGLRenderer implements Renderer {
 
   /** Reused across frames to keep the draw loop allocation-free. */
   private readonly drawList: { mesh: Mesh; depth: number; transparent: boolean }[] = [];
-  private readonly lights: LightState = { ambient: [0, 0, 0], directional: [], point: [] };
+  private readonly lights: LightState = { ambient: [0, 0, 0], directional: [], point: [], spot: [] };
   private readonly directionalColor = new Float32Array(MAX_LIGHTS * 3);
   private readonly directionalDirection = new Float32Array(MAX_LIGHTS * 3);
   private readonly directionalIntensity = new Float32Array(MAX_LIGHTS);
@@ -62,6 +63,13 @@ export class WebGLRenderer implements Renderer {
   private readonly pointPosition = new Float32Array(MAX_LIGHTS * 3);
   private readonly pointIntensity = new Float32Array(MAX_LIGHTS);
   private readonly pointDistance = new Float32Array(MAX_LIGHTS);
+  private readonly spotColor = new Float32Array(MAX_LIGHTS * 3);
+  private readonly spotPosition = new Float32Array(MAX_LIGHTS * 3);
+  private readonly spotDirection = new Float32Array(MAX_LIGHTS * 3);
+  private readonly spotIntensity = new Float32Array(MAX_LIGHTS);
+  private readonly spotDistance = new Float32Array(MAX_LIGHTS);
+  private readonly spotCosAngle = new Float32Array(MAX_LIGHTS);
+  private readonly spotPenumbra = new Float32Array(MAX_LIGHTS);
 
   constructor(public canvas: HTMLCanvasElement) {
     const gl = canvas.getContext('webgl2');
@@ -99,6 +107,7 @@ export class WebGLRenderer implements Renderer {
     state.ambient[2] = 0;
     state.directional.length = 0;
     state.point.length = 0;
+    state.spot.length = 0;
 
     scene.traverse((node) => {
       if (node instanceof AmbientLight) {
@@ -114,9 +123,23 @@ export class WebGLRenderer implements Renderer {
         state.ambient[0] += (sky[0] + ground[0]) * 0.5 * node.intensity;
         state.ambient[1] += (sky[1] + ground[1]) * 0.5 * node.intensity;
         state.ambient[2] += (sky[2] + ground[2]) * 0.5 * node.intensity;
-      } else if (node instanceof SpotLight || node instanceof DirectionalLight) {
-        // SpotLight is still approximated as a directional source; the cone
-        // parameters are unused. Tracked as AUDIT-TZ P2-4.
+      } else if (node instanceof SpotLight) {
+        // A real cone, positioned in the world. Spot lights used to be pushed
+        // into the directional list, discarding position, angle, penumbra and
+        // distance entirely (AUDIT-TZ P2-4).
+        if (state.spot.length >= MAX_LIGHTS) return;
+        const color = parseHexColor(node.color);
+        const e = node.worldMatrix.elements;
+        state.spot.push({
+          color: [color[0], color[1], color[2]],
+          position: [e[12], e[13], e[14]],
+          direction: [node.direction.x, node.direction.y, node.direction.z],
+          intensity: node.intensity,
+          distance: node.distance,
+          cosAngle: Math.cos(node.angle),
+          penumbra: node.penumbra,
+        });
+      } else if (node instanceof DirectionalLight) {
         if (state.directional.length >= MAX_LIGHTS) return;
         const color = parseHexColor(node.color);
         state.directional.push({
@@ -173,6 +196,25 @@ export class WebGLRenderer implements Renderer {
     gl.uniform3fv(uniforms.pointPosition, this.pointPosition);
     gl.uniform1fv(uniforms.pointIntensity, this.pointIntensity);
     gl.uniform1fv(uniforms.pointDistance, this.pointDistance);
+
+    const { spot } = this.lights;
+    for (let i = 0; i < spot.length; i += 1) {
+      this.spotColor.set(spot[i].color, i * 3);
+      this.spotPosition.set(spot[i].position, i * 3);
+      this.spotDirection.set(spot[i].direction, i * 3);
+      this.spotIntensity[i] = spot[i].intensity;
+      this.spotDistance[i] = spot[i].distance;
+      this.spotCosAngle[i] = spot[i].cosAngle;
+      this.spotPenumbra[i] = spot[i].penumbra;
+    }
+    gl.uniform1i(uniforms.spotCount, spot.length);
+    gl.uniform3fv(uniforms.spotColor, this.spotColor);
+    gl.uniform3fv(uniforms.spotPosition, this.spotPosition);
+    gl.uniform3fv(uniforms.spotDirection, this.spotDirection);
+    gl.uniform1fv(uniforms.spotIntensity, this.spotIntensity);
+    gl.uniform1fv(uniforms.spotDistance, this.spotDistance);
+    gl.uniform1fv(uniforms.spotCosAngle, this.spotCosAngle);
+    gl.uniform1fv(uniforms.spotPenumbra, this.spotPenumbra);
   }
 
   render(scene: Scene, camera: Camera) {

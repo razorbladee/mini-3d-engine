@@ -10,19 +10,32 @@
 - [Extensions](docs/EXTENSIONS.md), текстуры, physics и post-processing
 - [Roadmap and technical specification](docs/ROADMAP-TZ.md), следующий цикл фич
 - [Contributing](docs/CONTRIBUTING.md), обязательные тесты и обновление docs
+- [Audit and remediation](docs/AUDIT-TZ.md), разбор дефектов и план работ
 
 ## Что реализовано
 
-В движке есть scene graph, TRS-матрицы, Perspective/Orthographic cameras, WebGL2 renderer с depth/culling и lighting, Basic/Standard materials, diffuse Texture2D maps, Box/Plane/Sphere/Cylinder/Torus/Capsule geometry, Ambient/Directional/Point/Spot/Hemisphere lights, Raycaster, OrbitControls с focus, SimplePhysics, PostProcess, GLTFLoader для JSON glTF/GLB и базовый AnimationClip/AnimationMixer.
+В движке есть scene graph с Euler/quaternion-поворотами, TRS-матрицы,
+Perspective/Orthographic cameras с `lookAt`, WebGL2 renderer с depth/culling,
+сортировкой прозрачности по глубине и освобождением GPU-ресурсов,
+Basic/Standard materials, diffuse Texture2D maps с мип-мапами,
+Box/Plane/Sphere/Cylinder/Torus/Capsule geometry с корректными UV,
+Ambient/Directional/Point/Spot/Hemisphere lights (Spot — настоящий конус),
+Raycaster с пересечением треугольников, OrbitControls с focus, SimplePhysics,
+PostProcess, GLTFLoader для JSON glTF/GLB и AnimationClip/AnimationMixer.
+
+Состояние качества: 330 тестов, `npm run verify` зелёный. История аудита и
+разбор исправленных дефектов — в [AUDIT-TZ.md](docs/AUDIT-TZ.md).
 
 ## Запуск
 
 ```bash
 npm install
-npm run dev
-npm run build
-npm run test
+npm run dev      # витрина примеров
+npm run verify   # format + lint + typecheck + test + build
 ```
+
+Отдельные проверки: `npm run lint`, `npm run typecheck`, `npm run test`,
+`npm run test:coverage`, `npm run build`.
 
 Главная страница примеров: `index.html`. Она содержит scene browser с геометрией, материалами, procedural/image textures, lighting, physics, interaction, post-processing и glTF model scenes.
 

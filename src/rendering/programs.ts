@@ -35,6 +35,14 @@ export const LIT_UNIFORMS = {
   pointPosition: 'uPointPosition[0]',
   pointIntensity: 'uPointIntensity[0]',
   pointDistance: 'uPointDistance[0]',
+  spotCount: 'uSpotCount',
+  spotColor: 'uSpotColor[0]',
+  spotPosition: 'uSpotPosition[0]',
+  spotDirection: 'uSpotDirection[0]',
+  spotIntensity: 'uSpotIntensity[0]',
+  spotDistance: 'uSpotDistance[0]',
+  spotCosAngle: 'uSpotCosAngle[0]',
+  spotPenumbra: 'uSpotPenumbra[0]',
 } as const;
 
 export const ATTRIBUTES = { position: 'position', normal: 'normal', uv: 'uv' } as const;

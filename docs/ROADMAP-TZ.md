@@ -24,4 +24,12 @@
 
 ## Definition of Done
 
-`npm run build` и `npm run test` проходят; docs актуальны; новая фича имеет module, export, test и demo; existing demo scenes не исчезают.
+`npm run verify` (format + lint + typecheck + test + build) проходит; docs
+актуальны; новая фича имеет module, export, test и demo; existing demo scenes не
+исчезают.
+
+## Статус после аудита
+
+Полный разбор дефектов и план работ — в [AUDIT-TZ.md](AUDIT-TZ.md). Этапы 0–7
+выполнены: сборка и линтер зелёные, 330 тестов проходят, каждый исправленный
+дефект закрыт тестом, который падал до правки.

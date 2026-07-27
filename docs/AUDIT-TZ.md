@@ -6,34 +6,47 @@
 
 ## Статус выполнения
 
-Этапы 0–4 выполнены. Актуальное состояние: `build`, `lint`, `typecheck` зелёные;
-**288 тестов, 277 проходят**; 11 красных — это намеренные тесты, фиксирующие
-проблемы этапов 5–7 (см. таблицу).
+**Все 8 этапов выполнены.** `npm run verify` (format + lint + typecheck + test +
+build) проходит полностью: **330 тестов, 0 падений, 0 ошибок линтера**.
 
 | Этап                  | Статус | Что закрыто                                                               |
 | --------------------- | ------ | ------------------------------------------------------------------------- |
-| 0. Разблокировка      | ✅     | P0-1, P0-2, `.gitignore`, lock-файл, `tests` в tsconfig, vitest+jsdom     |
-| 1. Инфраструктура     | ✅     | P3-1 (Prettier+ESLint, 0 errors), P3-2 (CI, см. `ci/github-workflow.yml`) |
-| 2. Тестовый фундамент | ✅     | T-1…T-8: 41 → 288 тестов, fakeGL, все баги зафиксированы красными тестами |
-| 3. Математика         | ✅     | P1-2, P1-5, P2-2 (частично), P2-5 (частично)                              |
-| 4. Геометрия          | ✅     | P1-3, P1-8, P2-2 (BufferAttribute)                                        |
-| 5. Рендер             | ⬜     | P1-1, P1-6, P2-1, P2-6, P2-5 (renderer)                                   |
-| 6. Подсистемы         | ⬜     | P1-4, P1-7, P1-9, P2-3, P2-7, P2-8, P2-9                                  |
-| 7. Примеры и docs     | ⬜     | P3-4, P3-5, P2-4                                                          |
+| 0. Разблокировка      | done   | P0-1, P0-2, `.gitignore`, lock-файл, `tests` в tsconfig, vitest+jsdom     |
+| 1. Инфраструктура     | done   | P3-1 (Prettier+ESLint, 0 errors), P3-2 (CI, см. `ci/github-workflow.yml`) |
+| 2. Тестовый фундамент | done   | T-1…T-8: 41 → 330 тестов, fakeGL, все баги зафиксированы красными тестами |
+| 3. Математика         | done   | P1-2, P1-5, P2-2, P2-5                                                    |
+| 4. Геометрия          | done   | P1-3, P1-8, P2-2 (BufferAttribute)                                        |
+| 5. Рендер             | done   | P1-1, P1-6, P2-1, P2-6, P2-5, P3-3                                        |
+| 6. Подсистемы         | done   | P1-4, P1-7, P1-9, P2-3, P2-7, P2-8, P2-9                                  |
+| 7. Примеры и docs     | done   | P2-4, P3-4, P3-5                                                          |
 
-Оставшиеся красные тесты (каждый указывает на конкретный пункт ТЗ):
+Каждый дефект закрыт тестом, который падал до правки:
 
-| Тест                                                                | Пункт |
-| ------------------------------------------------------------------- | ----- |
-| `WebGLRenderer > only requests uniforms that the shaders declare`   | P1-1  |
-| `WebGLRenderer > resolves every uniform it looks up`                | P1-1  |
-| `WebGLRenderer > feeds ambient light into the lit program`          | P1-1  |
-| `WebGLRenderer > releases every GPU resource it created on dispose` | P1-6  |
-| `Frustum > accepts a point directly in front of the camera`         | P1-4  |
-| `Frustum > accepts a sphere straddling the frustum boundary`        | P1-4  |
-| `PostProcess > feeds each pass the result of the previous one`      | P1-7  |
-| `InputMap > returns a stable action object for repeated binds`      | P1-9  |
-| `showcase scene coverage > 'cameras' / 'texture' / 'postprocess'`   | P3-4  |
+| Пункт | Проверяющий тест                                                       |
+| ----- | ---------------------------------------------------------------------- |
+| P0-2  | `GLTFLoader > accepts accessor index 0 for POSITION`                   |
+| P1-1  | `WebGLRenderer > only requests uniforms that the shaders declare`      |
+| P1-2  | `OrbitControls > aims at the target across a grid of orbit angles`     |
+| P1-3  | `primitive topology > winding matches its vertex normals`              |
+| P1-4  | `Frustum > accepts a point directly in front of the camera`            |
+| P1-5  | `GLTFLoader > applies a node rotation that matches the quaternion`     |
+| P1-6  | `WebGLRenderer > releases every GPU resource it created on dispose`    |
+| P1-7  | `PostProcess > feeds each pass the result of the previous one`         |
+| P1-8  | `default UV mapping > gives the plane its four corner UVs`             |
+| P1-9  | `InputMap > does not latch the pressed edge after the key is released` |
+| P2-4  | `WebGLRenderer spot lights > uploads spot lights separately`           |
+| P2-7  | `Raycaster narrow phase > misses the corner gap`                       |
+| P3-4  | `showcase scene coverage > routes … to a dedicated scene`              |
+
+### Осталось за рамками аудита
+
+Сознательно не делалось, требует отдельного решения:
+
+- `wireframe` принимается материалом, но не применяется рендерером;
+- alpha test, индексная геометрия (`drawElements`), GPU frustum culling;
+- glTF: skinning, image maps, привязка animation channels к `AnimationMixer`;
+- полноценный WebGPU backend (`WebGPURenderer` — явная заглушка);
+- публикация npm-пакета (`private: true`, нет library build).
 
 > **CI.** Workflow лежит в `ci/github-workflow.yml`, а не в `.github/workflows/`:
 > GitHub App, от имени которого идут коммиты, не имеет права `workflows`, и push

@@ -10,7 +10,9 @@ import {
   Mesh,
   Node,
   OrbitControls,
+  OrthographicCamera,
   PerspectiveCamera,
+  PostProcess,
   PlaneGeometry,
   PointLight,
   Raycaster,
@@ -38,7 +40,9 @@ type Runtime = {
 const root = document.querySelector<HTMLDivElement>('#showcase');
 if (!root) throw new Error('The examples page requires a #showcase root');
 root.innerHTML =
-  '<div class="app-shell"><aside class="sidebar"><div class="mark">◈ <span>mini / lab</span></div><p class="sidebar-kicker">EXAMPLES / 0.9</p><h1>Scene browser</h1><p class="sidebar-copy">Every entry below builds a different scene or subsystem demo.</p><nav id="example-nav"></nav><div class="sidebar-foot"><span class="status-dot"></span> WebGL2 · 21 scenes</div></aside><main class="workspace"><header class="workspace-top"><div><p class="eyebrow" id="example-group"></p><h2 id="example-title"></h2></div><div class="top-actions"><button class="quiet" id="reset-camera">Reset camera</button><button class="quiet" id="next-example">Next scene ↗</button></div></header><section class="scene-stage"><div class="scene-copy"><p id="example-summary"></p><p class="control-hint" id="example-hint"></p></div><div class="viewport" id="viewport"></div><div class="stage-footer"><span id="scene-index"></span><span id="scene-status">running</span></div></section></main></div>';
+  '<div class="app-shell"><aside class="sidebar"><div class="mark">◈ <span>mini / lab</span></div><p class="sidebar-kicker">EXAMPLES / 0.9</p><h1>Scene browser</h1><p class="sidebar-copy">Every entry below builds a different scene or subsystem demo.</p><nav id="example-nav"></nav><div class="sidebar-foot"><span class="status-dot"></span> WebGL2 · ' +
+  examples.length +
+  ' scenes</div></aside><main class="workspace"><header class="workspace-top"><div><p class="eyebrow" id="example-group"></p><h2 id="example-title"></h2></div><div class="top-actions"><button class="quiet" id="reset-camera">Reset camera</button><button class="quiet" id="next-example">Next scene ↗</button></div></header><section class="scene-stage"><div class="scene-copy"><p id="example-summary"></p><p class="control-hint" id="example-hint"></p></div><div class="viewport" id="viewport"></div><div class="stage-footer"><span id="scene-index"></span><span id="scene-status">running</span></div></section></main></div>';
 const nav = document.querySelector<HTMLElement>('#example-nav')!,
   viewport = document.querySelector<HTMLElement>('#viewport')!;
 let active: ExampleId = examples[0].id;
@@ -203,15 +207,26 @@ function lighting(): Runtime {
   studio(s);
   const h = new HemisphereLight('#b8d4ff', 0.8);
   h.groundColor = '#4b3d54';
-  const sp = new SpotLight('#ffcc88', 2);
-  sp.position.set(2, 4, 1);
+  // A real cone now that SpotLight is more than a renamed DirectionalLight
+  // (AUDIT-TZ P2-4): position, angle, penumbra and distance all matter.
+  const sp = new SpotLight('#ffcc88', 6);
+  sp.position.set(0, 4.2, -4);
   sp.direction.set(0, -1, 0);
+  sp.angle = Math.PI / 7;
+  sp.penumbra = 0.45;
+  sp.distance = 12;
   s.add(h, sp);
+  plane(s);
   const a = new Mesh(new SphereGeometry(1.1, 28, 18), mat('#df8f56', 0.25, 0.35)),
     b = new Mesh(new TorusGeometry(1, 0.3, 28, 14), mat('#8068dc', 0.35, 0.55));
   a.position.set(-1.4, 0, -5);
   b.position.set(1.4, 0, -5);
   s.add(a, b);
+  // Sweep the cone so the falloff edge is visible.
+  r.update = ({ elapsed }) => {
+    sp.direction.set(Math.sin(elapsed * 0.6) * 0.4, -1, Math.cos(elapsed * 0.6) * 0.2);
+    b.rotation.x = elapsed * 0.4;
+  };
   return r;
 }
 function image(kind: 'wood' | 'brick' | 'cloth'): Runtime {
@@ -372,20 +387,135 @@ function production(id: ExampleId): Runtime {
   }
   return r;
 }
-function canvasDemo(): Runtime {
-  const c = document.createElement('canvas');
-  c.className = 'lab-canvas';
-  c.width = 720;
-  c.height = 480;
-  const x = c.getContext('2d')!;
-  x.fillStyle = '#8068dc';
-  x.fillRect(80, 80, 240, 240);
-  x.fillStyle = '#df8f56';
-  x.beginPath();
-  x.arc(430, 240, 120, 0, Math.PI * 2);
-  x.fill();
-  viewport.append(c);
-  return {};
+/**
+ * Camera lab: the same scene through a perspective and an orthographic camera.
+ * Previously this id fell through to a 2D canvas placeholder (AUDIT-TZ P3-4).
+ */
+function cameras(): Runtime {
+  const c = canvas();
+  const perspective = new PerspectiveCamera(58, 1, 0.1, 100);
+  const orthographic = new OrthographicCamera(-4, 4, 3, -3, 0.1, 100);
+  const engine = new Engine({ canvas: c, camera: perspective });
+  const controls = new OrbitControls(engine.camera, c);
+  const s = engine.scene;
+  studio(s);
+  plane(s);
+
+  // A row receding into the distance: perspective converges, ortho does not.
+  const shapes = [0, 1, 2, 3].map((i) => {
+    const m = new Mesh(i % 2 ? new SphereGeometry(0.6, 24, 16) : new BoxGeometry(1), mat('#8068dc', 0.3, 0.25));
+    m.position.set(-2.4 + i * 1.6, 0, -4 - i * 1.6);
+    return m;
+  });
+  s.add(...shapes);
+
+  let usingPerspective = true;
+  const toggle = document.createElement('button');
+  toggle.className = 'lab-toggle';
+  toggle.textContent = 'Switch to orthographic';
+  toggle.onclick = () => {
+    usingPerspective = !usingPerspective;
+    engine.camera = usingPerspective ? perspective : orthographic;
+    controls.camera = engine.camera;
+    controls.updateCamera();
+    engine.resize();
+    toggle.textContent = usingPerspective ? 'Switch to orthographic' : 'Switch to perspective';
+    status(usingPerspective ? 'perspective projection' : 'orthographic projection');
+  };
+  viewport.append(toggle);
+
+  status('perspective projection');
+  return { engine, controls, dispose: () => toggle.remove() };
+}
+
+/** Texture decoder: procedural canvas source uploaded through Texture2D. */
+function textureLab(): Runtime {
+  const r = three();
+  const s = r.engine!.scene;
+  studio(s);
+
+  const target = new Mesh(new BoxGeometry(2.2), mat('#ffffff', 0.45, 0.1));
+  target.position.z = -5;
+  s.add(target);
+
+  const kinds: ('stripes' | 'checker' | 'noise')[] = ['checker', 'stripes', 'noise'];
+  let index = 0;
+  const apply = async () => {
+    const kind = kinds[index % kinds.length];
+    status(`decoding ${kind}`);
+    try {
+      const decoded = await texture(kind);
+      (target.material as StandardMaterial).map = decoded;
+      status(`${kind} decoded (${decoded.image.width}x${decoded.image.height})`);
+    } catch {
+      status(`${kind} failed to decode`);
+    }
+  };
+
+  const button = document.createElement('button');
+  button.className = 'lab-toggle';
+  button.textContent = 'Decode next map';
+  button.onclick = () => {
+    index += 1;
+    void apply();
+  };
+  viewport.append(button);
+  void apply();
+
+  r.update = ({ elapsed }) => {
+    target.rotation.y = elapsed * 0.4;
+    target.rotation.x = Math.sin(elapsed * 0.3) * 0.25;
+  };
+  r.dispose = () => button.remove();
+  return r;
+}
+
+/** Post-process passes: an ordered chain whose output feeds the next stage. */
+function postprocessLab(): Runtime {
+  const r = three();
+  const s = r.engine!.scene;
+  studio(s);
+  plane(s);
+
+  const shapes = [
+    new Mesh(new TorusGeometry(1, 0.3, 28, 16), mat('#8068dc', 0.28, 0.45)),
+    new Mesh(new SphereGeometry(0.8, 24, 16), mat('#df8f56', 0.2, 0.5)),
+  ];
+  shapes[0].position.set(-1.3, 0, -5);
+  shapes[1].position.set(1.3, 0, -5);
+  s.add(...shapes);
+
+  // The chain is exercised on a stand-in texture: each pass receives what the
+  // previous one produced, which is exactly the behaviour P1-7 restored.
+  const chain = new PostProcess();
+  const trace: string[] = [];
+  for (const name of ['grade', 'vignette', 'grain']) {
+    chain.add({
+      apply: (input) => {
+        trace.push(`${String(input)} -> ${name}`);
+        return `${name}` as unknown as WebGLTexture;
+      },
+    });
+  }
+
+  const button = document.createElement('button');
+  button.className = 'lab-toggle';
+  button.textContent = 'Run pass chain';
+  const gl = (r.engine!.renderer as { gl?: WebGL2RenderingContext }).gl ?? ({} as WebGL2RenderingContext);
+  button.onclick = () => {
+    trace.length = 0;
+    chain.render('scene' as unknown as WebGLTexture, {} as WebGLFramebuffer, gl);
+    status(`${chain.length} passes: ${trace.join(', ')}`);
+  };
+  viewport.append(button);
+  status(`${chain.length} passes ready`);
+
+  r.update = ({ elapsed }) => {
+    shapes[0].rotation.x = elapsed * 0.5;
+    shapes[1].rotation.y = elapsed * 0.6;
+  };
+  r.dispose = () => button.remove();
+  return r;
 }
 function build(id: ExampleId): Runtime {
   if (id === 'primitives') return primitives();
@@ -404,7 +534,11 @@ function build(id: ExampleId): Runtime {
   if (id === 'physics') return physics();
   if (id === 'animation' || id === 'asset-manager' || id === 'transparent' || id === 'bounds-input')
     return production(id);
-  return canvasDemo();
+  if (id === 'cameras') return cameras();
+  if (id === 'texture') return textureLab();
+  if (id === 'postprocess') return postprocessLab();
+  // Exhaustive: every ExampleId above is handled, so this is unreachable.
+  throw new Error(`No scene registered for example ${id}`);
 }
 function renderNav() {
   const groups = [...new Set(examples.map((x) => x.group))];
@@ -435,6 +569,9 @@ function renderNav() {
     .forEach((b) => (b.onclick = () => select(b.dataset.id as ExampleId)));
 }
 function select(id: ExampleId) {
+  // Scenes may register their own teardown (extra DOM, listeners); run it
+  // before the engine goes away so nothing leaks between scenes.
+  runtime.dispose?.();
   runtime.controls?.dispose();
   runtime.engine?.dispose();
   viewport.innerHTML = '';
