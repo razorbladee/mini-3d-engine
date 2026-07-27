@@ -8,6 +8,14 @@ export type LoadedModel = {
   bounds: { center: [number, number, number]; radius: number };
 };
 type Accessor = { values: number[]; count: number; size: number };
+function readQuaternion(value: unknown): [number, number, number, number] {
+  if (!Array.isArray(value) || value.length < 4) throw new Error('glTF node rotation must be an array of four numbers');
+  const [x, y, z, w] = value;
+  if (![x, y, z, w].every((n) => typeof n === 'number' && Number.isFinite(n)))
+    throw new Error('glTF node rotation must contain finite numbers');
+  return [x, y, z, w];
+}
+
 function readTriple(value: unknown, field: string): [number, number, number] {
   if (!Array.isArray(value) || value.length < 3)
     throw new Error(`glTF node ${field} must be an array of three numbers`);
@@ -135,17 +143,12 @@ export class GLTFLoader {
           t.scale.set(sx, sy, sz);
         }
         if (n.rotation) {
-          const [x, y, z, w] = n.rotation;
-          const sinr = 2 * (w * x + y * z),
-            cosr = 1 - 2 * (x * x + y * y),
-            sinp = 2 * (w * y - z * x),
-            siny = 2 * (w * z + x * y),
-            cosy = 1 - 2 * (y * y + z * z);
-          t.rotation.set(
-            Math.atan2(sinr, cosr),
-            Math.abs(sinp) >= 1 ? (Math.sign(sinp) * Math.PI) / 2 : Math.asin(sinp),
-            Math.atan2(siny, cosy),
-          );
+          // Store the quaternion as-is. The previous code converted it with a
+          // ZYX yaw/pitch/roll formula and wrote the angles into an Euler that
+          // compose() then applied as XYZ, mis-orienting most glTF nodes by up
+          // to 0.47 in matrix terms (AUDIT-TZ P1-5).
+          const [x, y, z, w] = readQuaternion(n.rotation);
+          t.setRotationFromQuaternion(x, y, z, w);
         }
       }
     };

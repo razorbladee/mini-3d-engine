@@ -54,7 +54,11 @@ export class OrbitControls {
     const py = this.target.y + Math.sin(this.elevation) * this.distance;
     const pz = this.target.z + Math.cos(this.azimuth) * horizontal;
     this.camera.position.set(px, py, pz);
-    this.camera.rotation.set(-this.elevation, this.azimuth, 0);
+    // Orient via lookAt rather than hand-built Euler angles: the previous
+    // rotation.set(-elevation, azimuth, 0) only described the intended
+    // orientation under YXZ, while compose() applied XYZ, so the target drifted
+    // out of frame by up to 14.6 degrees (AUDIT-TZ P1-2).
+    this.camera.lookAt(this.target);
     return this;
   }
   focus(target: Vector3, distance = this.distance) {
