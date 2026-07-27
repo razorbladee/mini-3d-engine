@@ -6,7 +6,7 @@ export const examples: ExampleMeta[] = [
   { id: 'materials', group: 'Materials', title: 'Material studies', summary: 'Four spheres compare roughness and metalness under the same lights.', hint: 'Drag to orbit, wheel to zoom' },
   { id: 'scene-graph', group: 'Geometry', title: 'Scene graph rig', summary: 'A parent node rotates a small solar system of meshes.', hint: 'Drag to orbit, wheel to zoom' },
   { id: 'procedural-textures', group: 'Textures', title: 'Procedural signal', summary: 'Generated stripes, noise, and checker patterns mapped onto solids.', hint: 'Drag to orbit, wheel to zoom' },
-  { id: 'wood-texture', group: 'Textures', title: 'Wood floor image', summary: 'A CC0 wood-plank image from ambientCG on a rotating floor tile.', hint: 'External image · CC0 · drag to orbit' },
+  { id: 'wood-texture', group: 'Textures', title: 'Wood floor image', summary: 'A reusable wood-plank photograph from Wikimedia Commons on a rotating floor tile.', hint: 'External image · Wikimedia Commons' },
   { id: 'brick-texture', group: 'Textures', title: 'Brick wall image', summary: 'A public Wikimedia texture wrapped onto a beveled cube.', hint: 'External image · Wikimedia Commons' },
   { id: 'cloth-texture', group: 'Textures', title: 'Cloth image', summary: 'A real cloth photograph mapped to a soft-looking material study.', hint: 'External image · Wikimedia Commons' },
   { id: 'cameras', group: 'Cameras', title: 'Camera lab', summary: 'Switch between perspective and orthographic projections.', hint: 'Use the camera toggle, then orbit' },
